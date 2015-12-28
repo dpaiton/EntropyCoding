@@ -1,0 +1,320 @@
+#   ___      ___  __   __   __                ___       ___ ___ 
+#  |__  |\ |  |  |__) /  \ |__) \ /     |    |__  |\ | |__   |  
+#  |___ | \|  |  |  \ \__/ |     |  ___ |___ |___ | \| |___  |  
+#                                                               
+
+name: "LeNet"
+
+layer {
+   name: "mnist"
+   type: "Data"
+   include {
+      phase: TRAIN
+   }
+   transform_param {
+      scale: 0.00390625
+   }
+   data_param {
+      source: "/Users/slundquist/workspace/caffe/examples/mnist/mnist_train_lmdb"
+      backend: LMDB
+      batch_size: 64
+   }
+
+   top: "data"
+   top: "label"
+}
+
+layer {
+   name: "mnist"
+   type: "Data"
+   top: "data"
+   top: "label"
+   include {
+      phase: TEST
+   }
+   transform_param {
+      scale: 0.00390625
+   }
+   data_param {
+      source: "examples/mnist/mnist_test_lmdb"
+      batch_size: 100
+      backend: LMDB
+   }
+}
+
+#Supervised network
+layer {
+   name: "supConv1"
+   type: "Convolution"
+   param { 
+      #name: "convweights"
+      decay_mult: 0
+      lr_mult: 0 
+   }
+   param { 
+      #name: "convbias"
+      decay_mult: 0
+      lr_mult: 0 
+   }
+   convolution_param {
+      num_output: 20
+      kernel_size: 5
+      stride: 1
+      weight_filler {
+         type: "xavier"
+      }
+      bias_filler {
+         type: "constant"
+      }
+   }
+   bottom: "data"
+   top: "supConv1"
+}
+
+layer {
+   name: "supPool1"
+   type: "Pooling"
+   pooling_param {
+      kernel_size: 2
+      stride: 2
+      pool: MAX
+   }
+   bottom: "supConv1"
+   top: "supPool1"
+}
+
+layer {
+  name: "supIp1"
+  type: "InnerProduct"
+   param { 
+      #name: "ip1weights"
+      decay_mult: 0
+      lr_mult: 0 
+   }
+   param { 
+      #name: "ip1bias"
+      decay_mult: 0
+      lr_mult: 0 
+   }
+  inner_product_param {
+    num_output: 500
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+  bottom: "supPool1"
+  top: "supIp1"
+}
+
+layer {
+  name: "supRelu1"
+  type: "ReLU"
+  bottom: "supIp1"
+  top: "supIp1"
+}
+
+layer {
+  name: "supIp2"
+  type: "InnerProduct"
+  param { 
+     #name: "ip2weights"
+     decay_mult: 0
+     lr_mult: 0 
+  }
+  param { 
+     #name: "ip2bias"
+     decay_mult: 0
+     lr_mult: 0 
+  }
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+  bottom: "supIp1"
+  top: "supIp2"
+}
+
+layer {
+  name: "supIp3"
+  type: "InnerProduct"
+  param { 
+     decay_mult: 0
+     lr_mult: 0 
+  }
+  param { 
+     decay_mult: 0
+     lr_mult: 0 
+  }
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+  bottom: "supIp2"
+  top: "supIp3"
+}
+
+layer {
+   name: "supAccuracy"
+   type: "Accuracy"
+   bottom: "supIp3"
+   bottom: "label"
+   top: "supAccuracy"
+   include {
+      phase: TEST
+   }
+}
+
+layer {
+  name: "supLoss"
+  type: "SoftmaxWithLoss"
+  bottom: "supIp3"
+  bottom: "label"
+}
+
+
+#Entropy network
+layer {
+   name: "entConv1"
+   type: "Convolution"
+   param { 
+      name: "convweights"
+      decay_mult: 1
+      lr_mult: 2 
+   }
+   param { 
+      name: "convbias"
+      decay_mult: 0
+      lr_mult: 3 
+   }
+   convolution_param {
+      num_output: 20
+      kernel_size: 5
+      stride: 1
+      weight_filler {
+         type: "xavier"
+      }
+      bias_filler {
+         type: "constant"
+      }
+   }
+   bottom: "data"
+   top: "entConv1"
+}
+
+layer {
+   name: "entPool1"
+   type: "Pooling"
+   pooling_param {
+      kernel_size: 2
+      stride: 2
+      pool: MAX
+   }
+   bottom: "entConv1"
+   top: "entPool1"
+}
+
+layer {
+  name: "entIp1"
+  type: "InnerProduct"
+   param { 
+      name: "ip1weights"
+      decay_mult: 1
+      lr_mult: 2 
+   }
+   param { 
+      name: "ip1bias"
+      decay_mult: 0
+      lr_mult: 3 
+   }
+  inner_product_param {
+    num_output: 500
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+  bottom: "entPool1"
+  top: "entIp1"
+}
+
+layer {
+  name: "entRelu1"
+  type: "ReLU"
+  bottom: "entIp1"
+  top: "entIp1"
+}
+
+layer {
+  name: "entIp2"
+  type: "InnerProduct"
+  param { 
+     name: "ip2weights"
+     decay_mult: 1
+     lr_mult: 2 
+  }
+  param { 
+     name: "ip2bias"
+     decay_mult: 0
+     lr_mult: 3 
+  }
+  inner_product_param {
+    num_output: 10
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+  bottom: "entIp1"
+  top: "entIp2"
+}
+
+layer{
+   type: "Python"
+   name: "entropyCode"
+   bottom: "entIp2"
+   top: "entEn1"
+   python_param{
+      module: 'pyloss'
+      layer: 'EntropyCode'
+      beta: .1
+   }
+}
+
+layer {
+  name: "entSoftIp"
+  type: "Softmax"
+  bottom: "entIp2"
+  top: "entSoftIp"
+}
+
+layer {
+  name: "entSoftEn"
+  type: "Softmax"
+  bottom: "entEn1"
+  top: "entSoftEn"
+}
+
+layer {
+  name: "entLoss"
+  type: "EuclideanLoss"
+  bottom: "entSoftIp"
+  bottom: "entSoftEn"
+  top: "l2_error"
+}
