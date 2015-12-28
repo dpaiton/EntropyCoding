@@ -1,12 +1,23 @@
+'''
+run.py
+Written by dpaiton & slundquist
+
+Dec 28, 2015
+
+Run Caffe network for entropy reduction coding.
+Should be executed from the root dir of the repository.
+'''
+
 import caffe
 import numpy as np
 import matplotlib.pyplot as plt
 import IPython
 import sys
 
-sys.path.insert(0,"/Users/slundquist/workspace/caffe/python/entropyLoss/")
+sys.path.insert(0,"./python/entropyLoss/")
 
-basedir = "/Users/slundquist/workspace/caffe/"
+#caffeDir = "/Users/slundquist/workspace/caffe/"
+caffeDir = "/Users/dpaiton/Work/Libraries/caffe/"
 
 def vis_square(data, padsize=1, padval=0):
     data -= data.min()
@@ -25,9 +36,9 @@ def vis_square(data, padsize=1, padval=0):
 
 
 #net = caffe.Net("caffenet.prototxt", caffe.TRAIN)
-solver = caffe.SGDSolver(basedir + "/models/entropy/solver.prototxt")
+solver = caffe.SGDSolver(caffeDir + "/models/entropy/solver.prototxt")
 net = solver.net
-#solver.net.copy_from(basedir + "models/entropy/output/lenet_iter_10000.caffemodel")
+#solver.net.copy_from(caffeDir + "models/entropy/output/lenet_iter_10000.caffemodel")
 
 solver.solve()
 

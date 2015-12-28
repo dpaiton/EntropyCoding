@@ -1,6 +1,5 @@
 import caffe
 import numpy as np
-import IPython
 
 class EntropyCode(caffe.Layer):
    def setup(self, bottom, top):

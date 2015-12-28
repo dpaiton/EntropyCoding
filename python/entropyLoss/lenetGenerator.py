@@ -18,5 +18,6 @@ def create_lenet(lmdb, batch_size):
    net.loss = L.SoftmaxWithLoss(n.ip2, n.label)
    return net
 
-source = "/Users/slundquist/workspace/caffe/examples/mnist/mnist_train_lmdb"
-net = create_lenet(source, 64)
+data_source = "/Users/slundquist/workspace/caffe/examples/mnist/mnist_train_lmdb"
+#data_source = "/Users/dpaiton/Work/Datasets/MNIST/mnist_train_lmdb"
+net = create_lenet(data_source, 64)
