@@ -17,7 +17,10 @@ import sys
 sys.path.insert(0,"./python/entropyLoss/")
 
 #caffeDir = "/Users/slundquist/workspace/caffe/"
+#modelDIr = "/Users/slundquist/workspace/caffe/"
+
 caffeDir = "/Users/dpaiton/Work/Libraries/caffe/"
+modelDir = "./models/entropy/"
 
 def vis_square(data, padsize=1, padval=0):
     data -= data.min()
@@ -36,9 +39,9 @@ def vis_square(data, padsize=1, padval=0):
 
 
 #net = caffe.Net("caffenet.prototxt", caffe.TRAIN)
-solver = caffe.SGDSolver(caffeDir + "/models/entropy/solver.prototxt")
+solver = caffe.SGDSolver(modelDir + "solver.prototxt")
 net = solver.net
-#solver.net.copy_from(caffeDir + "models/entropy/output/lenet_iter_10000.caffemodel")
+#solver.net.copy_from(modelDir  + "models/entropy/output/lenet_iter_10000.caffemodel")
 
 solver.solve()
 

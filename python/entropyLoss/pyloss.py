@@ -15,8 +15,6 @@ class EntropyCode(caffe.Layer):
       top[0].reshape(*bottom[0].data.shape)
 
    def forward(self, bottom, top):
-      #top[0].data[...] = np.copy(bottom[0].data)
-      #IPython.embed()
       #Summing over batches, batchSums is a vector of num batches
       #batchSums = np.sum(np.exp(bottom[0].data), 1)
 
