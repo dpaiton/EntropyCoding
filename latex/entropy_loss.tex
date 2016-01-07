@@ -54,7 +54,10 @@ grestore
 
 \titlerunning{Entropy Loss for Deep Networks}        % if too long for running head
 
-\author{Dylan M. Paiton}  
+\author{
+Dylan M. Paiton\\
+Sheng Y. Lundquist
+}  
 
 
 \institute{DM Paiton \at
@@ -105,9 +108,16 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{equation}
 
 \section{Forward Function - Entropy Computation} \label{forward}
-\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information.\\
+\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information. We want the network output distribution for a given image to be a delta function, although we want the average distribution over all images to be uniform. As an equation, we want 
 
-\noindent First the equation for entropy. We define our output probability from the network as
+\begin{displaymath}
+\argmin{<H[q(c|I)]>_{I}} \\
+\text{subject to} <q(c|I)>_{I} = 1/N,
+\end{displaymath}
+
+\noindent where $N$ is the number of nodes, $I$ is an image, $c$ is an object category, $H[]$ is the entropy, $q$ is the output distribution, $<>_{I}$ indicates an average over all images in a mini-batch, and the minimization is performed over all network parameters, $\phi$.\\
+
+\noindent First we will derive the equation for entropy. We define our output probability from the network as
 
 \begin{equation}
     q_i = \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}}.
@@ -142,7 +152,11 @@ Here we describe a loss function for training a typical deep network in an unsup
 \label{entropyexp3}
 \end{equation}
 
-\noindent This is the only part of the forward function. I'll add the term for perserving information later.
+\noindent Reducing this loss will reduce the total entropy of the output distribution. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. However, we also wish to preserve information and avoid the pathological solution of clustering all inputs into a single "everything" category. To do this, we will introduce an additional loss that will compute the average output over all images in a mini batch, and ensure that it is approximately one over the number of output neurons: 
+
+\begin{equation}
+<q(c|I)>_{I} = \sum_{I}q(c|I)p(I) = 1/N
+\end{equation}
 
 \section{Backward Function - Entropy Gradient} \label{backward}
 \noindent The gradient of the entropy forward function is the partial derivative of equation \ref{entropyexp3} with respect to an individual element, $X_{k}$. First we will take the derivative of the left term, as defined in \ref{entropyexp3}, then we will take the derivative of the right term, then we will combine them.
@@ -158,13 +172,13 @@ Here we describe a loss function for training a typical deep network in an unsup
     \frac{\partial H}{\partial X_{k}} =
     \frac{\sum_{j}e^{-\beta X_{j}}\frac{\partial\sum_{i}\beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}}
     - \sum_{i}\beta X_{i} e^{-\beta X_{i}}\frac{\partial\sum_{j}e^{-\beta X_{j}}}{\partial X_{k}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
-    + \ldots\\
+    + \ldots
 \end{displaymath}
 
 \begin{displaymath}
     \frac{\partial H}{\partial X_{k}} =
     \frac{\sum_{j}e^{-\beta X_{j}} \beta e^{-\beta X_{k}}\left(1 - \beta X_{k}\right) + \beta^{2} e^{-\beta X_{k}} \sum_{i}X_{i}e^{-\beta X_{i}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
-    + \ldots\\
+    + \ldots
 \end{displaymath}
 
 \begin{displaymath}
@@ -222,11 +236,11 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i}
+    \frac{\partial H}{\partial X_{k}} = - \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i}
 \end{displaymath}
 
 \begin{equation}
-    \frac{\partial H}{\partial X_{k}} = \beta^{2}q_{k}\left(X_{k} + \sum_{i}X_{i}q_{i}\right)
+    \frac{\partial H}{\partial X_{k}} = \beta^{2}q_{k}\left(\sum_{i}X_{i}q_{i} - X_{k}\right)
 \label{combd}
 \end{equation}
 
