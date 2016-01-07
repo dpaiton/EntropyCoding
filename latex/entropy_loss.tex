@@ -1,0 +1,242 @@
+%%%%%%%%
+%
+% LaTeX document for describing the forward & derivative
+% functions for an entropy loss.
+%
+%  Dylan Paiton
+%  Jan 06-2016
+%
+%%%%%%%%
+
+% Create eps file
+\begin{filecontents*}{entropy_loss.eps}
+gsave
+newpath
+  20 20 moveto
+  20 220 lineto
+  220 220 lineto
+  220 20 lineto
+closepath
+2 setlinewidth
+gsave
+  .4 setgray fill
+grestore
+stroke
+grestore
+\end{filecontents*}
+
+\RequirePackage{fix-cm}
+
+%\documentclass{svjour3}                     % onecolumn (standard format)
+%\documentclass[smallcondensed]{svjour3}     % onecolumn (ditto)
+\documentclass[smallextended]{svjour3}       % onecolumn (second format)
+%\documentclass[twocolumn]{svjour3}          % twocolumn
+
+\smartqed  % flush right qed marks, e.g. at end of proof
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+%\usepackage{mathptmx}      % use Times fonts if available on your TeX system
+%\usepackage{latexsym}
+
+\newcommand{\argmin}{\operatornamewithlimits{argmin}}
+\newcommand{\tightoverset}[2]{\mathop{#2}\limits^{\vbox to -.6ex{\kern-0.75ex\hbox{$#1$}\vss}}}
+
+\begin{document}
+
+\title{Entropy loss function for unsupervised deep learning
+%\thanks{Grants or other notes
+%about the article that should go on the front page should be
+%placed here. General acknowledgments should be placed at the end of the article.}
+}
+
+%\subtitle{Entropy Loss for Deep Networks}
+
+\titlerunning{Entropy Loss for Deep Networks}        % if too long for running head
+
+\author{Dylan M. Paiton}  
+
+
+\institute{DM Paiton \at
+              Vision Science Graduate Group\\
+              Redwood Center for Theoretical Neuroscience\\
+              University of California, Berkeley\\
+              \email{dpaiton@berkeley.edu}           %  \\
+}
+
+\maketitle
+
+\begin{abstract}
+Here we describe a loss function for training a typical deep network in an unsupervised way. The objective of the loss is to encourage the deep network to minimize the entropy of its output while still conveying information. This should result in an intelligent clustering of object categories without the need of human generated object labels.
+\keywords{entropy \and deep network \and loss functions \and unsupervised learning}
+\end{abstract}
+
+\section{A Few Notes} \label{notes}
+\noindent The input to the Entropy function is $X$, a vector of $N$ neurons.\\
+\noindent All sums are to be calcualted for every neuron in the network, $N$.
+
+\section{Useful Derivations} \label{derivatives}
+\noindent The following are a handful of derivatives that have to be taken multiple times for the entropy gradient calculation.
+
+\begin{equation}
+    \frac{\partial\sum_{i}X_i}{\partial X_{k}} = \frac{\partial X_{k}}{\partial X_{k}} + \frac{\partial \sum_{i \ne k} X_{i}}{\partial X_{k}} = 1
+\label{dx}
+\end{equation}
+
+\begin{equation}
+    \frac{\partial \sum_{i}e^{-\beta X_{i}}}{\partial X_{k}} = \frac{\partial e^{-\beta X_{k}}}{\partial X_{K}} + \frac{\partial \sum_{i \ne k} e^{-\beta X_{i}}}{\partial X_{k}} = -\beta e^{-\beta X_{k}}
+\label{dex}
+\end{equation}
+
+\begin{equation}
+\begin{aligned} 
+    \frac{\partial \sum_{i}\beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}} 
+    &= \frac{\partial \beta X_{k} e^{-\beta X_{k}}}{\partial X_{k}} + \frac{\partial \sum_{i \ne k} \beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}} \\
+    &= \frac{\partial \beta X_{K}}{\partial X_{k}} e^{-\beta X_{k}} + \beta X_{k} \frac{\partial e^{-\beta X_{k}}}{\partial X_{k}}\\
+    &= \beta e^{-\beta X_{k}} + \beta X_{k} (-\beta e^{-\beta X_{k}})\\
+    &= \beta e^{-\beta X_{k}}(1 - \beta X_{k})
+\label{dxex}
+\end{aligned}
+\end{equation}
+
+\begin{equation}
+    \frac{\partial \ln{\sum_{j} e^{-\beta X_{j}}}}{\partial X_{k}} = \frac{1}{\sum_{j} e^{-\beta X_{j}}} \frac{\partial \sum_{j} e^{-\beta X_{j}}}{\partial X_{k}} = \frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}
+\label{dlne}
+\end{equation}
+
+\section{Forward Function - Entropy Computation} \label{forward}
+\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information.\\
+
+\noindent First the equation for entropy. We define our output probability from the network as
+
+\begin{equation}
+    q_i = \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}}.
+\label{qdef}
+\end{equation}
+
+\noindent This can then plug into the entropy equation:
+
+\begin{equation}
+    H = -\sum_{i} q_{i} log(q_{i}),
+\label{entropy}
+\end{equation}
+
+\noindent which expands to:
+
+\begin{displaymath}
+    H = \sum_{i}\left( \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}} \left(\beta X_{i} + \ln{\sum_{j}e^{-\beta X_{j}}}\right)\right)
+\label{entropyexp}
+\end{displaymath}
+
+\begin{displaymath}
+    H =
+    \sum_{i}\frac{\beta X_{i} e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}} + 
+    \sum_{i}\frac{e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}\ln{\sum_{j}e^{-\beta X_{j}}}
+\label{entropyexp2}
+\end{displaymath}
+
+\begin{equation}
+    H =
+    \overbrace{\sum_{i}\frac{\beta X_{i}e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}}^\text{Left Term} + 
+    \overbrace{\frac{\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}\sum_{i}e^{-\beta X_{i}}}^\text{Right Term}.
+\label{entropyexp3}
+\end{equation}
+
+\noindent This is the only part of the forward function. I'll add the term for perserving information later.
+
+\section{Backward Function - Entropy Gradient} \label{backward}
+\noindent The gradient of the entropy forward function is the partial derivative of equation \ref{entropyexp3} with respect to an individual element, $X_{k}$. First we will take the derivative of the left term, as defined in \ref{entropyexp3}, then we will take the derivative of the right term, then we will combine them.
+
+%%%%%%%%%%%%%%%%%%
+% Left Derivatives
+%%%%%%%%%%%%%%%%%%
+\subsection{Left Term Derivative}
+
+% Tried to line these up, but I can't get it to work...
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} =
+    \frac{\sum_{j}e^{-\beta X_{j}}\frac{\partial\sum_{i}\beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}}
+    - \sum_{i}\beta X_{i} e^{-\beta X_{i}}\frac{\partial\sum_{j}e^{-\beta X_{j}}}{\partial X_{k}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    + \ldots\\
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} =
+    \frac{\sum_{j}e^{-\beta X_{j}} \beta e^{-\beta X_{k}}\left(1 - \beta X_{k}\right) + \beta^{2} e^{-\beta X_{k}} \sum_{i}X_{i}e^{-\beta X_{i}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    + \ldots\\
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} =
+    \frac{\beta e^{-\beta X_{k}}\left(1 - \beta X_{k}\right)}{\sum_{j}e^{-\beta X_{j}}}
+    + \frac{\beta^{2} e^{-\beta X_{k}} \sum_{i}X_{i}e^{-\beta X_{i}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    + \ldots
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} =
+    \frac{\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}} \left(1 - \beta X_{k} + \frac{\beta \sum_{i}X_{i}e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}\right)
+    + \ldots
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \beta q_{k} \left(1 - \beta X_{k} + \beta \sum_{i}X_{i}q_{i}\right) + \ldots
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \beta q_{k} - \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i} + \ldots
+\end{displaymath}
+
+%%%%%%%%%%%%%%%%%%
+% Right Derivatives
+%%%%%%%%%%%%%%%%%%
+\subsection{Right Term Derivative}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \ldots + 
+    \sum_{i}e^{-\beta x_{i}} \left(\frac{\sum_{j}e^{-\beta X_{j}} \left(\frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}\right)
+    + \beta e^{-\beta X_{k}}\ln{\sum_{j}e^{-\beta X_{j}}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}\right)
+    + \frac{\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}\left(-\beta e^{-\beta X_{k}}\right)
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \ldots + 
+    \frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}
+    + \frac{\beta e^{-\beta X_{k}}\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}
+    - \frac{\beta e^{-\beta X_{k}} \ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}
+\end{displaymath}
+
+\begin{equation}
+    \frac{\partial H}{\partial X_{k}} = \ldots - \beta q_{k}
+\label{rightd}
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%
+% Left & Right Derivatives
+%%%%%%%%%%%%%%%%%%
+\subsection{Combine Left and Right Derivatives}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \beta q_{k} - \beta^{2} X_{k} q_{k} + \beta^{2} q_{k} \sum_{i}X_{i}q_{i} - \beta q_{k}
+\end{displaymath}
+
+\begin{displaymath}
+    \frac{\partial H}{\partial X_{k}} = \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i}
+\end{displaymath}
+
+\begin{equation}
+    \frac{\partial H}{\partial X_{k}} = \beta^{2}q_{k}\left(X_{k} + \sum_{i}X_{i}q_{i}\right)
+\label{combd}
+\end{equation}
+
+\noindent where $q_{i}$ is given in equation \ref{qdef}.
+
+
+% BibTeX users please use one of
+%\bibliographystyle{spbasic}  % basic style, author-year citations
+%\bibliographystyle{spmpsci}  % mathematics and physical sciences
+%\bibliographystyle{spphys}   % APS-like style for physics
+%\bibliography{references}    % name your BibTeX data base
+
+\end{document}
