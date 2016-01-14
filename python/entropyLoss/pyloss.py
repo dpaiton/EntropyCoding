@@ -1,33 +1,49 @@
 import caffe
 import numpy as np
 
-class EntropyCode(caffe.Layer):
+class ActivityLossLayer(caffe.Layer):
    def setup(self, bottom, top):
       if len(bottom) != 1:
-         raise Exception("Need one input to compute annealing.")
-      if len(top) != 1:
-         raise Exception("Need one output to compute annealing.")
-      #self.beta_ = layer_params['beta']
+         raise Exception("Need one input to compute information conveyed.")
+      self.beta_ = 1.0
 
    def reshape(self, bottom, top):
-      if(len(np.shape(bottom[0].data)) != 2):
-         raise Exception("Bottom data must have a heigth and width of 1")
-      top[0].reshape(*bottom[0].data.shape)
+      top[0].reshape(1)
+      self.q_dist = np.zeros_like(bottom[0].data, dtype=np.float32)
 
    def forward(self, bottom, top):
-      #Summing over batches, batchSums is a vector of num batches
-      #batchSums = np.sum(np.exp(bottom[0].data), 1)
-
-      #Maximize peak
-      top[0].data[...] = (1/np.exp(-bottom[0].data))
-
-      #numBatch = np.shape(bottom[0].data)[0]
-      #for i in range(numBatch):
-      #   #Set value to push each other away
-      #   top[0].data[i, ...] = peakVal[i, ...] * (bottom[0].data[i, ...] - np.log(batchSums[i]))
-      #   #Normalize peak val
-      #   #top[0].data[i, ... ]= (outVal - np.min(bottom[0].data))/(np.max(bottom[0].data) - np.min(bottom[0].data))
+      self.q_dist = np.exp(-self.beta_ * bottom[0].data) / np.sum(np.exp(-self.beta_*bottom[0].data))
+      num_batch = bottom[0].shape[0]
+      num_nodes = bottom[0].shape[1]
+      top[0] = np.sum(np.pow(np.sum(self.q_dist / num_batch, axis=0) - (1.0 / num_nodes), 2.0), axis=0)
 
    def backward(self, top, propagate_down, bottom):
-      bottom[0].diff[...] = np.copy(top[0].diff)
-      pass
+      num_nodes = bottom[0].shape[1]
+      num_batch = bottom[0].shape[0]
+      temp1 = 2.0 * np.sum(np.sum(self.q_dist / num_batch, axis=0) - 1.0/num_nodes, axis=0)
+      temp2 = -np.sum(np.exp(-self.beta_ * bottom[0].data), axis=0)
+      bottom[0].diff[...] = np.mult(temp1, temp2)
+
+class EntropyLossLayer(caffe.Layer):
+   def setup(self, bottom, top):
+      if len(bottom) != 1:
+         raise Exception("Need one input to compute entropy.")
+      #self.beta_ = layer_params['beta']
+      self.beta_ = 1.0
+
+   def reshape(self, bottom, top):
+      # loss output is scalar
+      # variables for storing distributions
+      self.q_dist = np.zeros_like(bottom[0].data, dtype=np.float32)
+      top[0].reshape(1)
+
+   def forward(self, bottom, top):
+      # First we compute the output distribution from input data
+      self.q_dist = np.exp(-self.beta_ * bottom[0].data) / np.sum(np.exp(-self.beta_*bottom[0].data))
+
+      # Now we compute entropy over q distribution
+      top[0] = np.sum(np.mult(self.q_dist, np.log(self.q_dist)))
+
+   def backward(self, top, propagate_down, bottom):
+      temp = np.sum(np.mult(bottom[0].data, self.q_dist)) - bottom[0].data
+      bottom[0].diff[...] = np.pow(self.beta_, 2.0) * np.mult(self.q_dist, temp)
