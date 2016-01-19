@@ -75,8 +75,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{abstract}
 
 \section{A Few Notes} \label{notes}
-\noindent The input to the Entropy function is $X$, a vector of $N$ neurons.\\
-\noindent All sums are to be calcualted for every neuron in the network, $N$.
+\noindent The input to the Entropy function is $X$, a vector of $N$ neurons. The energy loss will be accumulated over a batch of $M$ images.
 
 \section{Useful Derivations} \label{derivatives}
 \noindent The following are a handful of derivatives that have to be taken multiple times for the entropy gradient calculation.
@@ -107,24 +106,33 @@ Here we describe a loss function for training a typical deep network in an unsup
 \label{dlne}
 \end{equation}
 
+\begin{equation}
+\begin{aligned}
+    q_i &= \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}}\\
+    \frac{\partial q_{i}}{\partial X_{i}} &= \frac{-\sum_{j} e^{-\beta X_{j}} \beta e^{-\beta X_{i}} + \beta (e^{-\beta X_{i}})^2} {(\sum_{j}e^{-\beta X_{j}})^2}\\
+    \frac{\partial q_{i}}{\partial X_{i}} &= \beta q_{i} \left(q_{i} - 1\right)
+\label{qderiv}
+\end{aligned}
+\end{equation}
+
 \section{Forward Function - Entropy Computation} \label{forward}
-\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information. We want the network output distribution for a given image to be a delta function, although we want the average distribution over all images to be uniform. As an equation, we want 
+\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information. We want the network output distribution for a given image to be a delta function, although we want the average distribution over all images to be uniform. Thus, we want 
 
 \begin{displaymath}
-\argmin{<H[q(c|I)]>_{I}} \\
+\argmin_{X(\phi)}{<H[q(c|I)]>_{I}} \\
 \text{subject to} <q(c|I)>_{I} = 1/N,
 \end{displaymath}
 
-\noindent where $N$ is the number of nodes, $I$ is an image, $c$ is an object category, $H[]$ is the entropy, $q$ is the output distribution, $<>_{I}$ indicates an average over all images in a mini-batch, and the minimization is performed over all network parameters, $\phi$.\\
+\noindent where $N$ is the number of nodes, $I$ is an image, $c$ is an object category, $H[]$ is the entropy, $q$ is the output distribution, $<>_{I}$ indicates an average over all images in a mini-batch, and the minimization is performed over all network parameters, $X(\phi)$.\\
 
 \noindent First we will derive the equation for entropy. We define our output probability from the network as
 
 \begin{equation}
-    q_i = \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}}.
+    q_{i} = \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}},
 \label{qdef}
 \end{equation}
 
-\noindent This can then plug into the entropy equation:
+\noindent where q is computed per neuron for a single input image. For $\beta = -1$, equation \ref{qdef} is the softmax function on $X$. This can then plug into the entropy equation:
 
 \begin{equation}
     H = -\sum_{i} q_{i} log(q_{i}),
@@ -152,10 +160,23 @@ Here we describe a loss function for training a typical deep network in an unsup
 \label{entropyexp3}
 \end{equation}
 
-\noindent Reducing this loss will reduce the total entropy of the output distribution. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. However, we also wish to preserve information and avoid the pathological solution of clustering all inputs into a single "everything" category. To do this, we will introduce an additional loss that will compute the average output over all images in a mini batch, and ensure that it is approximately one over the number of output neurons: 
+\noindent Reducing this loss will reduce the total entropy of the output distribution for a given image. If the model is solved via batch learning, a cumulative sum will need to be taken over $M$ batch images. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. However, we also wish to preserve information and avoid the pathological solution of clustering all inputs into a single \fontit{everything} category. To do this, we will introduce an additional loss that will compute the average output over all images in a mini batch, and ensure that it is approximately one over the number of output neurons: 
 
 \begin{equation}
-<q(c|I)>_{I} = 1/N
+    A = \sum_{i} \sum_{m} log(\frac{N}{M} q_{m,i})
+\label{averageact}
+\end{equation}
+
+\noindent Where $q$ is indexed by the batch elements, $m \in M$, and neuron, $n \in N$. Combining the two terms, we get our total loss function:
+
+\begin{equation}
+\begin{aligned}
+    L &= \sum_{m} H + \lambda A \\
+    L &= \sum_{m}\left( \sum_{i}\frac{\beta X_{i,m}e^{-\beta X_{i,m}}}{\sum_{j}e^{-\beta X_{j,m}}} +
+    \frac{\ln{\sum_{j}e^{-\beta X_{j,m}}}}{\sum_{j}e^{-\beta X_{j,m}}} \sum_{i}e^{-\beta X_{i,m}} \right) +
+    \lambda \sum_{i,m} \ln{\frac{N}{M} \frac{e^-\beta X_{i,m}}{\sum_{j}e^{-\beta X_{j,m}}}}
+\label{totalloss}
+\end{aligned}
 \end{equation}
 
 \section{Backward Function - Entropy Gradient} \label{backward}
@@ -164,7 +185,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 %%%%%%%%%%%%%%%%%%
 % Left Derivatives
 %%%%%%%%%%%%%%%%%%
-\subsection{Left Term Derivative}
+\subsection{Left Term Entropy Derivative}
 
 % Tried to line these up, but I can't get it to work...
 
@@ -205,7 +226,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 %%%%%%%%%%%%%%%%%%
 % Right Derivatives
 %%%%%%%%%%%%%%%%%%
-\subsection{Right Term Derivative}
+\subsection{Right Term Entropy Derivative}
 
 \begin{displaymath}
     \frac{\partial H}{\partial X_{k}} = \ldots + 
@@ -229,7 +250,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 %%%%%%%%%%%%%%%%%%
 % Left & Right Derivatives
 %%%%%%%%%%%%%%%%%%
-\subsection{Combine Left and Right Derivatives}
+\subsection{Combine Left and Right Entropy Derivatives}
 
 \begin{displaymath}
     \frac{\partial H}{\partial X_{k}} = \beta q_{k} - \beta^{2} X_{k} q_{k} + \beta^{2} q_{k} \sum_{i}X_{i}q_{i} - \beta q_{k}
@@ -245,6 +266,32 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{equation}
 
 \noindent where $q_{i}$ is given in equation \ref{qdef}.
+
+%%%%%%%%%%%%%%%%%%
+% Average Activation Derivative
+%%%%%%%%%%%%%%%%%%
+\subsection{Average Activation Function Derivative}
+
+\noindent In addition to the gradient on the forward entropy equation (equation \ref{entropyexp3}), we need to compute a gradient on the second term that encourages equal activation across all nodes \ref{averageact}.
+
+\begin{equation}
+\begin{aligned}
+    \frac{\partial A}{\partial X_{k}} &= \lambda \frac{\frac{\partial \frac{N}{M}\sum_{m}q_{k,m}}{\partial X_{k}}}{\frac{N}{M} \sum_{m}q_{k,m}}\\
+                                      &= \lambda \sum_{m} \beta \left(q_{k,m} - 1\right)
+\label{averageactderiv}
+\end{aligned}
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%
+% Loss Derivative
+%%%%%%%%%%%%%%%%%%
+\subsection{Loss Derivative}
+\noindent Finally, we combine the derived entropy gradient with the average activity function gradient to get our full loss gradient:
+
+\begin{equation}
+    \frac{\partial L}{\partial X_{k}} = \sum_{m} \beta^{2}q_{k,m}\left(\sum_{i}X_{i,m}q_{i,m} - X_{k,m}\right) + \lambda \sum_{m} \beta \left(q_{k,m} - 1\right)
+\label{lossgrad}
+\end{equation}
 
 
 % BibTeX users please use one of
