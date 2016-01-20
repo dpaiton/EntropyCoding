@@ -24,7 +24,7 @@ def optfn(x, num_batch, num_nodes, lamb, beta):
     ent_grad = np.sum(np.power(beta, 2.0) * np.multiply(q_dist, ent_tmp))
 
     act_tmp1 = 2.0 * np.sum(np.sum(q_dist / num_batch, axis=0) - (1.0 / num_nodes), axis=0)
-    act_tmp2 = (-beta / num_batch) np.sum(np.exp(-beta * x), axis=0)
+    act_tmp2 = (-beta / num_batch) * np.sum(np.exp(-beta * x), axis=0)
     act_grad = np.multiply(act_tmp1, act_tmp2)
 
     IPython.embed()

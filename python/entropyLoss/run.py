@@ -45,8 +45,8 @@ net = solver.net
 
 solver.solve()
 
-img = vis_square(net.params['entConv1'][0].data.transpose(0, 2, 3, 1))
-plt.imshow(img, cmap="Greys", interpolation="nearest")
-plt.show(block=False)
+#img = vis_square(net.params['entConv1'][0].data.transpose(0, 2, 3, 1))
+#plt.imshow(img, cmap="Greys", interpolation="nearest")
+#plt.show(block=False)
 
 IPython.embed()
