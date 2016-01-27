@@ -83,7 +83,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 % Forward Function
 %%%%%%%%%%%%%%%%%%%%%
 \section{Forward Function - Entropy Computation} \label{forward}
-\noindent The input to the entropy loss function is $X$, a matrix of $N$ neurons by $B$ batch inputs. We want the network output distribution for a given image to be a delta function (i.e. one-hot distribution), indicating that the input falls into a particular category. Additionally, we want the average network output distribution over all images to be uniform. These objectives can be expressed in terms of entropy. First we define a probability distribution across the $N$ nodes in $X$:
+\noindent The input to the entropy loss function is $X$, a matrix of $N$ neurons by $B$ batch inputs. We note that the indices $i, j, k$ will be used to index the node in $X$ and $l,m,n$ will be used to index the batch number in $X$. We want the network output distribution for a given image to be a delta function (i.e. one-hot distribution), indicating that the input falls into a particular category. Additionally, we want the average network output distribution over all images to be uniform. These objectives can be expressed in terms of entropy. First we define a probability distribution across the $N$ nodes in $X$:
 
 \begin{equation} \label{qdef}
     q_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{j}^{N} e^{-\beta X_{j,l}}},
@@ -95,7 +95,7 @@ Here we describe a loss function for training a typical deep network in an unsup
     p_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{m}^{B} e^{-\beta X_{i,m}}}.
 \end{equation}
 
-\noindent We note that the indices $i, j, k$ will be used to index the node in $X$ and $l,m,n$ will be used to index the batch number in $X$. We wish for all nodes to be active over the corpus of our inputs and for only one node to be active for a single input. Thus, we want to minimize entropy per image and minimize negative entropy per batch. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. The entropy for a given batch image (summed over nodes) and for a given node (summed over the batch) are
+\noindent The entropy for a given batch image (summed over nodes) and for a given node (summed over the batch) are
 
 \begin{equation} \label{Hl}
     H_{l} = -\sum_{i} q_{i,l} \ln q_{i,l}
@@ -107,7 +107,7 @@ Here we describe a loss function for training a typical deep network in an unsup
     H_{i} = -\sum_{l} p_{i,l} \ln p_{i,l},
 \end{equation}
 
-\noindent respectively. Our cost function to minimize combines these two terms:
+\noindent respectively. We wish for all nodes to be active over the corpus of our inputs and for only one node to be active for a single input. Thus, we want to minimize \textbf{positive} entropy per image and minimize \textbf{negative} entropy per batch. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. Therefore, our cost function to minimize will combine equation \ref{Hl} with the negative of equation \ref{Hi}:
 
 \begin{displaymath}
 \begin{align}
