@@ -74,225 +74,212 @@ Here we describe a loss function for training a typical deep network in an unsup
 \keywords{entropy \and deep network \and loss functions \and unsupervised learning}
 \end{abstract}
 
-\section{A Few Notes} \label{notes}
-\noindent The input to the Entropy function is $X$, a vector of $N$ neurons. The energy loss will be accumulated over a batch of $M$ images.
+\section{Introduction} \label{introduction}
+\noindent Here we describe a loss function for the unsupervised training of a deep neural network. This is motivated by the cost of labeling data and we want to learn a more general representation.\\
 
-\section{Useful Derivations} \label{derivatives}
+\noindent The goal of the project is to develop a cost function that applies to any generic neural network output. In this document we will first define our loss function in terms of a cost that must be propagated through the deep network to modify parameters. Then we will derive the gradient of the cost function with respect to an individual output element from the deep network. This gradient can then be applied to the network parameters via the back propagation algorithm. We assume that the deep network is being trained via stochastic gradient descent with a batch of images. For each image, we expect an output vector of floats (they could be positive only, but it is not required). We assume one  vector per image in the batch, which can then be assembled into a matrix.
+
+%%%%%%%%%%%%%%%%%%%%%
+% Forward Function
+%%%%%%%%%%%%%%%%%%%%%
+\section{Forward Function - Entropy Computation} \label{forward}
+\noindent The input to the entropy loss function is $X$, a matrix of $N$ neurons by $B$ batch inputs. We want the network output distribution for a given image to be a delta function (i.e. one-hot distribution), indicating that the input falls into a particular category. Additionally, we want the average network output distribution over all images to be uniform. These objectives can be expressed in terms of entropy. First we define a probability distribution across the $N$ nodes in $X$:
+
+\begin{equation} \label{qdef}
+    q_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{j}^{N} e^{-\beta X_{j,l}}},
+\end{equation}
+
+\noindent where $q$ is computed per neuron for a single input, $i \in N$ indexes the neurons, and $l \in B$ indexes the batch input. For $\beta = -1$, equation \ref{qdef} is the softmax function on $X$. We include the $\beta$ term to allow us to modify the temperature of our probability distribution. Next we define a probability distribution across our batch of $B$ inputs:
+
+\begin{equation} \label{pdef}
+    p_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{m}^{B} e^{-\beta X_{i,m}}}.
+\end{equation}
+
+\noindent We note that the indices $i, j, k$ will be used to index the node in $X$ and $l,m,n$ will be used to index the batch number in $X$. We wish for all nodes to be active over the corpus of our inputs and for only one node to be active for a single input. Thus, we want to minimize entropy per image and minimize negative entropy per batch. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. The entropy for a given batch image (summed over nodes) and for a given node (summed over the batch) are
+
+\begin{equation} \label{Hl}
+    H_{l} = -\sum_{i} q_{i,l} \ln q_{i,l}
+\end{equation}
+
+\noindent and
+
+\begin{equation} \label{Hi}
+    H_{i} = -\sum_{l} p_{i,l} \ln p_{i,l},
+\end{equation}
+
+\noindent respectively. Our cost function to minimize combines these two terms:
+
+\begin{displaymath}
+\begin{align}
+
+    C& = \sum_{l}H_{l} - \lambda \sum_{i}H_{i}\\
+
+    C& = - \sum_{l}\sum_{i} q_{i,l} \ln q_{i,l} + \lambda \sum_{i}\sum_{l} p_{i,l} \ln p_{i,l}
+\end{align}
+\end{displaymath}
+
+\begin{equation} \label{cost}
+\begin{aligned}
+    C& = \sum_{i,l}\frac{e^{-\beta X_{i,l}}}{\sum_{j}e^{-\beta X_{j,l}}} \left(\beta X_{i,l} + \ln{\sum_{j}e^{-\beta X_{j,l}}}\right) -\\ 
+     & \lambda \sum_{i,l}\frac{e^{-\beta X_{i,l}}}{\sum_{m} e^{-\beta X_{i,m}}} \left(\beta X_{i,l} + \ln{\sum_{m}e^{-\beta X_{i,m}}}\right).
+\end{aligned}
+\end{equation}
+
+\noindent It should be clear here that the two entropy calculations are nearly identical, and therefore the derivatives are going to be similar. We will take the derivative of one entropy function and apply it to both terms in our cost function.
+
+\begin{displaymath}
+    H_{l} = - \sum_{i} q_{i,l} \ln q_{i,l}
+\end{displaymath}
+
+\begin{displaymath}
+    H_{l} =
+    \sum_{i}\frac{\beta X_{i,l} e^{-\beta X_{i,l}}}{\sum_{j}e^{-\beta X_{j,l}}} + 
+    \sum_{i}\frac{e^{-\beta X_{i,l}}}{\sum_{j}e^{-\beta X_{j,l}}}\ln{\sum_{j}e^{-\beta X_{j,l}}}
+\end{displaymath}
+
+\begin{equation} \label{entropyexp}
+    H_{l} =
+    \overbrace{\sum_{i}\frac{\beta X_{i,l}e^{-\beta X_{i,l}}}{\sum_{j}e^{-\beta X_{j,l}}}}^\text{Left Term} + 
+    \overbrace{\frac{\ln{\sum_{j}e^{-\beta X_{j,l}}}}{\sum_{j}e^{-\beta X_{j,l}}}\sum_{i}e^{-\beta X_{i,l}}}^\text{Right Term}.
+\end{equation}
+
+%%%%%%%%%%%%%%%%%%%%%
+% Backward Function
+%%%%%%%%%%%%%%%%%%%%%
+\section{Backward Function - Entropy Gradient} \label{backward}
+\noindent The gradient of the forward function will contain the partial derivative of equation \ref{cost} with respect to an individual element, $X_{k,l}$. For the sake of brevity, we will only derive a single entorpy term, given in equation \ref{entropyexp}. First we will take the derivative of the left term, as defined in equation \ref{entropyexp}, then we will take the derivative of the right term, then we will combine them.
+
+%%%%%%%%%%%%%%%%%%%%%
+% Useful Derivatives 
+%%%%%%%%%%%%%%%%%%%%%
+\subsection{Useful Derivatives} \label{derivatives}
 \noindent The following are a handful of derivatives that have to be taken multiple times for the entropy gradient calculation.
 
-\begin{equation}
+%TODO: Left justify
+\begin{equation} \label{dx}
     \frac{\partial\sum_{i}X_i}{\partial X_{k}} = \frac{\partial X_{k}}{\partial X_{k}} + \frac{\partial \sum_{i \ne k} X_{i}}{\partial X_{k}} = 1
-\label{dx}
 \end{equation}
 
-\begin{equation}
+\begin{equation} \label{dex}
     \frac{\partial \sum_{i}e^{-\beta X_{i}}}{\partial X_{k}} = \frac{\partial e^{-\beta X_{k}}}{\partial X_{K}} + \frac{\partial \sum_{i \ne k} e^{-\beta X_{i}}}{\partial X_{k}} = -\beta e^{-\beta X_{k}}
-\label{dex}
 \end{equation}
 
-\begin{equation}
+\begin{equation} \label{dxex}
 \begin{aligned} 
     \frac{\partial \sum_{i}\beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}} 
     &= \frac{\partial \beta X_{k} e^{-\beta X_{k}}}{\partial X_{k}} + \frac{\partial \sum_{i \ne k} \beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}} \\
     &= \frac{\partial \beta X_{K}}{\partial X_{k}} e^{-\beta X_{k}} + \beta X_{k} \frac{\partial e^{-\beta X_{k}}}{\partial X_{k}}\\
     &= \beta e^{-\beta X_{k}} + \beta X_{k} (-\beta e^{-\beta X_{k}})\\
     &= \beta e^{-\beta X_{k}}(1 - \beta X_{k})
-\label{dxex}
 \end{aligned}
 \end{equation}
 
-\begin{equation}
+\begin{equation} \label{dlne}
     \frac{\partial \ln{\sum_{j} e^{-\beta X_{j}}}}{\partial X_{k}} = \frac{1}{\sum_{j} e^{-\beta X_{j}}} \frac{\partial \sum_{j} e^{-\beta X_{j}}}{\partial X_{k}} = \frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}
-\label{dlne}
 \end{equation}
 
-\begin{equation}
-\begin{aligned}
-    q_i &= \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}}\\
-    \frac{\partial q_{i}}{\partial X_{i}} &= \frac{-\sum_{j} e^{-\beta X_{j}} \beta e^{-\beta X_{i}} + \beta (e^{-\beta X_{i}})^2} {(\sum_{j}e^{-\beta X_{j}})^2}\\
-    \frac{\partial q_{i}}{\partial X_{i}} &= \beta q_{i} \left(q_{i} - 1\right)
-\label{qderiv}
-\end{aligned}
+\begin{equation} \label{qderiv}
+    \frac{\partial q_{i}}{\partial X_{i}} = \frac{-\sum_{j} e^{-\beta X_{j}} \beta e^{-\beta X_{i}} + \beta (e^{-\beta X_{i}})^2} {(\sum_{j}e^{-\beta X_{j}})^2} = \beta q_{i} \left(q_{i} - 1\right)
 \end{equation}
 
-\section{Forward Function - Entropy Computation} \label{forward}
-\noindent Our loss should include a term for minimizing entropy as well as a term for preserving information. We want the network output distribution for a given image to be a delta function, although we want the average distribution over all images to be uniform. Thus, we want 
-
-\begin{displaymath}
-\argmin_{X(\phi)}{<H[q(c|I)]>_{I}} \\
-\text{subject to} <q(c|I)>_{I} = 1/N,
-\end{displaymath}
-
-\noindent where $N$ is the number of nodes, $I$ is an image, $c$ is an object category, $H[]$ is the entropy, $q$ is the output distribution, $<>_{I}$ indicates an average over all images in a mini-batch, and the minimization is performed over all network parameters, $X(\phi)$.\\
-
-\noindent First we will derive the equation for entropy. We define our output probability from the network as
-
-\begin{equation}
-    q_{i} = \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}},
-\label{qdef}
-\end{equation}
-
-\noindent where q is computed per neuron for a single input image. For $\beta = -1$, equation \ref{qdef} is the softmax function on $X$. This can then plug into the entropy equation:
-
-\begin{equation}
-    H = -\sum_{i} q_{i} log(q_{i}),
-\label{entropy}
-\end{equation}
-
-\noindent which expands to:
-
-\begin{displaymath}
-    H = \sum_{i}\left( \frac{e^{-\beta X_{i}}}{\sum_{j} e^{-\beta X_{j}}} \left(\beta X_{i} + \ln{\sum_{j}e^{-\beta X_{j}}}\right)\right)
-\label{entropyexp}
-\end{displaymath}
-
-\begin{displaymath}
-    H =
-    \sum_{i}\frac{\beta X_{i} e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}} + 
-    \sum_{i}\frac{e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}\ln{\sum_{j}e^{-\beta X_{j}}}
-\label{entropyexp2}
-\end{displaymath}
-
-\begin{equation}
-    H =
-    \overbrace{\sum_{i}\frac{\beta X_{i}e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}}^\text{Left Term} + 
-    \overbrace{\frac{\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}\sum_{i}e^{-\beta X_{i}}}^\text{Right Term}.
-\label{entropyexp3}
-\end{equation}
-
-\noindent Reducing this loss will reduce the total entropy of the output distribution for a given image. If the model is solved via batch learning, a cumulative sum will need to be taken over $M$ batch images. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. However, we also wish to preserve information and avoid the pathological solution of clustering all inputs into a single \fontit{everything} category. To do this, we will introduce an additional loss that will compute the average output over all images in a mini batch, and ensure that it is approximately one over the number of output neurons: 
-
-\begin{equation}
-    A = \sum_{i} \sum_{m} log(\frac{N}{M} q_{m,i})
-\label{averageact}
-\end{equation}
-
-\noindent Where $q$ is indexed by the batch elements, $m \in M$, and neuron, $n \in N$. Combining the two terms, we get our total loss function:
-
-\begin{equation}
-\begin{aligned}
-    L &= \sum_{m} H + \lambda A \\
-    L &= \sum_{m}\left( \sum_{i}\frac{\beta X_{i,m}e^{-\beta X_{i,m}}}{\sum_{j}e^{-\beta X_{j,m}}} +
-    \frac{\ln{\sum_{j}e^{-\beta X_{j,m}}}}{\sum_{j}e^{-\beta X_{j,m}}} \sum_{i}e^{-\beta X_{i,m}} \right) +
-    \lambda \sum_{i,m} \ln{\frac{N}{M} \frac{e^-\beta X_{i,m}}{\sum_{j}e^{-\beta X_{j,m}}}}
-\label{totalloss}
-\end{aligned}
-\end{equation}
-
-\section{Backward Function - Entropy Gradient} \label{backward}
-\noindent The gradient of the entropy forward function is the partial derivative of equation \ref{entropyexp3} with respect to an individual element, $X_{k}$. First we will take the derivative of the left term, as defined in equation \ref{entropyexp3}, then we will take the derivative of the right term, then we will combine them.
-
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
 % Left Derivatives
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
 \subsection{Left Term Entropy Derivative}
 
-% Tried to line these up, but I can't get it to work...
+%TODO: Lign up equal signs
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} =
-    \frac{\sum_{j}e^{-\beta X_{j}}\frac{\partial\sum_{i}\beta X_{i} e^{-\beta X_{i}}}{\partial X_{k}}
-    - \sum_{i}\beta X_{i} e^{-\beta X_{i}}\frac{\partial\sum_{j}e^{-\beta X_{j}}}{\partial X_{k}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    \frac{\partial H_{l}}{\partial X_{k,n}} =
+    \frac{\sum_{j}e^{-\beta X_{j,n}}\frac{\partial\sum_{i}\beta X_{i,n} e^{-\beta X_{i,n}}}{\partial X_{k,n}}
+    - \sum_{i}\beta X_{i,n} e^{-\beta X_{i,n}}\frac{\partial\sum_{j}e^{-\beta X_{j,n}}}{\partial X_{k,n}}}{\left(\sum_{j}e^{-\beta X_{j,n}}\right)^{2}}
     + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} =
-    \frac{\sum_{j}e^{-\beta X_{j}} \beta e^{-\beta X_{k}}\left(1 - \beta X_{k}\right) + \beta^{2} e^{-\beta X_{k}} \sum_{i}X_{i}e^{-\beta X_{i}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    \frac{\partial H_{l}}{\partial X_{k,n}} =
+    \frac{\sum_{j}e^{-\beta X_{j,n}} \beta e^{-\beta X_{k,n}}\left(1 - \beta X_{k,n}\right) + \beta^{2} e^{-\beta X_{k,n}} \sum_{i}X_{i,n}e^{-\beta X_{i,n}}}{\left(\sum_{j}e^{-\beta X_{j,n}}\right)^{2}}
     + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} =
-    \frac{\beta e^{-\beta X_{k}}\left(1 - \beta X_{k}\right)}{\sum_{j}e^{-\beta X_{j}}}
-    + \frac{\beta^{2} e^{-\beta X_{k}} \sum_{i}X_{i}e^{-\beta X_{i}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}
+    \frac{\partial H_{l}}{\partial X_{k,n}} =
+    \frac{\beta e^{-\beta X_{k,n}}\left(1 - \beta X_{k,n}\right)}{\sum_{j}e^{-\beta X_{j,n}}}
+    + \frac{\beta^{2} e^{-\beta X_{k,n}} \sum_{i}X_{i,n}e^{-\beta X_{i,n}}}{\left(\sum_{j}e^{-\beta X_{j,n}}\right)^{2}}
     + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} =
-    \frac{\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}} \left(1 - \beta X_{k} + \frac{\beta \sum_{i}X_{i}e^{-\beta X_{i}}}{\sum_{j}e^{-\beta X_{j}}}\right)
+    \frac{\partial H_{l}}{\partial X_{k,n}} =
+    \frac{\beta e^{-\beta X_{k,n}}}{\sum_{j}e^{-\beta X_{j,n}}} \left(1 - \beta X_{k,n} + \frac{\beta \sum_{i}X_{i,n}e^{-\beta X_{i,n}}}{\sum_{j}e^{-\beta X_{j,n}}}\right)
     + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \beta q_{k} \left(1 - \beta X_{k} + \beta \sum_{i}X_{i}q_{i}\right) + \ldots
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} \left(1 - \beta X_{k,n} + \beta \sum_{i}X_{i,n}q_{i,n}\right) + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \beta q_{k} - \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i} + \ldots
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} - \beta^{2}X_{k,n}q_{k,n} + \beta^{2}q_{k,n}\sum_{i}X_{i,n}q_{i,n} + \ldots
 \end{displaymath}
 
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
 % Right Derivatives
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
 \subsection{Right Term Entropy Derivative}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \ldots + 
-    \sum_{i}e^{-\beta x_{i}} \left(\frac{\sum_{j}e^{-\beta X_{j}} \left(\frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}\right)
-    + \beta e^{-\beta X_{k}}\ln{\sum_{j}e^{-\beta X_{j}}}}{\left(\sum_{j}e^{-\beta X_{j}}\right)^{2}}\right)
-    + \frac{\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}\left(-\beta e^{-\beta X_{k}}\right)
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \ldots + 
+    \sum_{i}e^{-\beta x_{i,n}} \left(\frac{\sum_{j}e^{-\beta X_{j,n}} \left(\frac{-\beta e^{-\beta X_{k,n}}}{\sum_{j}e^{-\beta X_{j,n}}}\right)
+    + \beta e^{-\beta X_{k,n}}\ln{\sum_{j}e^{-\beta X_{j,n}}}}{\left(\sum_{j}e^{-\beta X_{j,n}}\right)^{2}}\right)
+    + \frac{\ln{\sum_{j}e^{-\beta X_{j,n}}}}{\sum_{j}e^{-\beta X_{j,n}}}\left(-\beta e^{-\beta X_{k,n}}\right)
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \ldots + 
-    \frac{-\beta e^{-\beta X_{k}}}{\sum_{j}e^{-\beta X_{j}}}
-    + \frac{\beta e^{-\beta X_{k}}\ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}
-    - \frac{\beta e^{-\beta X_{k}} \ln{\sum_{j}e^{-\beta X_{j}}}}{\sum_{j}e^{-\beta X_{j}}}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \ldots + 
+    \frac{-\beta e^{-\beta X_{k,n}}}{\sum_{j}e^{-\beta X_{j,n}}}
+    + \frac{\beta e^{-\beta X_{k,n}}\ln{\sum_{j}e^{-\beta X_{j,n}}}}{\sum_{j}e^{-\beta X_{j,n}}}
+    - \frac{\beta e^{-\beta X_{k,n}}\ln{\sum_{j}e^{-\beta X_{j,n}}}}{\sum_{j}e^{-\beta X_{j,n}}}
 \end{displaymath}
 
 \begin{equation}
-    \frac{\partial H}{\partial X_{k}} = \ldots - \beta q_{k}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \ldots - \beta q_{k,n}
 \label{rightd}
 \end{equation}
 
-%%%%%%%%%%%%%%%%%%
-% Left & Right Derivatives
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
+% Combine Derivatives
+%%%%%%%%%%%%%%%%%%%%%
 \subsection{Combine Left and Right Entropy Derivatives}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = \beta q_{k} - \beta^{2} X_{k} q_{k} + \beta^{2} q_{k} \sum_{i}X_{i}q_{i} - \beta q_{k}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} - \beta^{2} X_{k,n} q_{k,n} + \beta^{2} q_{k,n} \sum_{i}X_{i,n}q_{i,n} - \beta q_{k,n}
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H}{\partial X_{k}} = - \beta^{2}X_{k}q_{k} + \beta^{2}q_{k}\sum_{i}X_{i}q_{i}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = - \beta^{2}X_{k,n}q_{k,n} + \beta^{2}q_{k,n}\sum_{i}X_{i,n}q_{i,n}
 \end{displaymath}
 
 \begin{equation}
-    \frac{\partial H}{\partial X_{k}} = \beta^{2}q_{k}\left(\sum_{i}X_{i}q_{i} - X_{k}\right)
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta^{2}q_{k,n}\left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right)
 \label{combd}
 \end{equation}
 
-\noindent where $q_{i}$ is given in equation \ref{qdef}.
+\noindent where $q_{k,n}$ is given in equation \ref{qdef}.
 
-%%%%%%%%%%%%%%%%%%
-% Average Activation Derivative
-%%%%%%%%%%%%%%%%%%
-\subsection{Average Activation Function Derivative}
-
-\noindent In addition to the gradient on the forward entropy equation (equation \ref{entropyexp3}), we need to compute a gradient on the second term that encourages equal activation across all nodes \ref{averageact}.
-
-\begin{equation}
-\begin{aligned}
-    \frac{\partial A}{\partial X_{k}} &= \lambda \frac{\frac{\partial \frac{N}{M}\sum_{m}q_{k,m}}{\partial X_{k}}}{\frac{N}{M} \sum_{m}q_{k,m}}\\
-                                      &= \lambda \sum_{m} \beta \left(q_{k,m} - 1\right)
-\label{averageactderiv}
-\end{aligned}
-\end{equation}
-
-%%%%%%%%%%%%%%%%%%
-% Loss Derivative
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%
+% Cost Derivative
+%%%%%%%%%%%%%%%%%%%%%
 \subsection{Loss Derivative}
-\noindent Finally, we combine the derived entropy gradient with the average activity function gradient to get our full loss gradient:
+\noindent Equation \ref{cost} has two entropy terms in it, the gradient of which can be derived by following the same process outlined above.
 
-\begin{equation}
-    \frac{\partial L}{\partial X_{k}} = \sum_{m} \beta^{2}q_{k,m}\left(\sum_{i}X_{i,m}q_{i,m} - X_{k,m}\right) + \lambda \sum_{m} \beta \left(q_{k,m} - 1\right)
-\label{lossgrad}
+\begin{displaymath}
+    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} q_{k,n} \left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right) - \lambda \beta^{2} p_{k,n} \left( \sum_{l}X_{k,l}p_{k,l} - X_{k,n}\right)
+\end{displaymath}
+
+\begin{equation} \label{costgrad}
+    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} \left( q_{k,n} \left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right) - \lambda p_{k,n} \left( \sum_{l}X_{k,l}p_{k,l} - X_{k,n}\right)\right)
 \end{equation}
-
 
 % BibTeX users please use one of
 %\bibliographystyle{spbasic}  % basic style, author-year citations
