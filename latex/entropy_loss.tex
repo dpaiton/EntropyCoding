@@ -71,7 +71,7 @@ Sheng Y. Lundquist
 
 \begin{abstract}
 Here we describe a loss function for training a typical deep network in an unsupervised way. The objective of the loss is to encourage the deep network to minimize the entropy of its output while still conveying information. This should result in an intelligent clustering of object categories without the need of human generated object labels.
-\keywords{entropy \and deep network \and loss functions \and unsupervised learning}
+\keywords{entropy \and deep network \and loss function \and unsupervised learning}
 \end{abstract}
 
 \section{Introduction} \label{introduction}
@@ -86,25 +86,25 @@ Here we describe a loss function for training a typical deep network in an unsup
 \noindent The input to the entropy loss function is $X$, a matrix of $N$ neurons by $B$ batch inputs. We note that the indices $i, j, k$ will be used to index the node in $X$ and $l,m,n$ will be used to index the batch number in $X$. We want the network output distribution for a given image to be a delta function (i.e. one-hot distribution), indicating that the input falls into a particular category. Additionally, we want the average network output distribution over all images to be uniform. These objectives can be expressed in terms of entropy. First we define a probability distribution across the $N$ nodes in $X$:
 
 \begin{equation} \label{qdef}
-    q_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{j}^{N} e^{-\beta X_{j,l}}},
+    Q_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{j}^{N} e^{-\beta X_{j,l}}},
 \end{equation}
 
-\noindent where $q$ is computed per neuron for a single input, $i \in N$ indexes the neurons, and $l \in B$ indexes the batch input. For $\beta = -1$, equation \ref{qdef} is the softmax function on $X$. We include the $\beta$ term to allow us to modify the temperature of our probability distribution. Next we define a probability distribution across our batch of $B$ inputs:
+\noindent where $Q$ is computed per neuron for a single input, $i \in N$ indexes the neurons, and $l \in B$ indexes the batch input. For $\beta = -1$, equation \ref{qdef} is the softmax function on $X$. We include the $\beta$ term to allow us to modify the temperature of our probability distribution. Next we define a probability distribution across our batch of $B$ inputs:
 
 \begin{equation} \label{pdef}
-    p_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{m}^{B} e^{-\beta X_{i,m}}}.
+    P_{i,l} = \frac{e^{-\beta X_{i,l}}}{\sum_{m}^{B} e^{-\beta X_{i,m}}}.
 \end{equation}
 
 \noindent The entropy for a given batch image (summed over nodes) and for a given node (summed over the batch) are
 
 \begin{equation} \label{Hl}
-    H_{l} = -\sum_{i} q_{i,l} \ln q_{i,l}
+    H_{l} = -\sum_{i} Q_{i,l} \ln Q_{i,l}
 \end{equation}
 
 \noindent and
 
 \begin{equation} \label{Hi}
-    H_{i} = -\sum_{l} p_{i,l} \ln p_{i,l},
+    H_{i} = -\sum_{l} P_{i,l} \ln P_{i,l},
 \end{equation}
 
 \noindent respectively. We wish for all nodes to be active over the corpus of our inputs and for only one node to be active for a single input. Thus, we want to minimize \textbf{positive} entropy per image and minimize \textbf{negative} entropy per batch. This should encourage the network to cluster inputs into discrete categories and produce a sparse output. Therefore, our cost function to minimize will combine equation \ref{Hl} with the negative of equation \ref{Hi}:
@@ -114,7 +114,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 
     C& = \sum_{l}H_{l} - \lambda \sum_{i}H_{i}\\
 
-    C& = - \sum_{l}\sum_{i} q_{i,l} \ln q_{i,l} + \lambda \sum_{i}\sum_{l} p_{i,l} \ln p_{i,l}
+    C& = - \sum_{l}\sum_{i} Q_{i,l} \ln Q_{i,l} + \lambda \sum_{i}\sum_{l} P_{i,l} \ln P_{i,l}
 \end{align}
 \end{displaymath}
 
@@ -128,7 +128,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 \noindent It should be clear here that the two entropy calculations are nearly identical, and therefore the derivatives are going to be similar. We will take the derivative of one entropy function and apply it to both terms in our cost function.
 
 \begin{displaymath}
-    H_{l} = - \sum_{i} q_{i,l} \ln q_{i,l}
+    H_{l} = - \sum_{i} Q_{i,l} \ln Q_{i,l}
 \end{displaymath}
 
 \begin{displaymath}
@@ -179,7 +179,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{equation}
 
 \begin{equation} \label{qderiv}
-    \frac{\partial q_{i}}{\partial X_{i}} = \frac{-\sum_{j} e^{-\beta X_{j}} \beta e^{-\beta X_{i}} + \beta (e^{-\beta X_{i}})^2} {(\sum_{j}e^{-\beta X_{j}})^2} = \beta q_{i} \left(q_{i} - 1\right)
+    \frac{\partial Q_{i}}{\partial X_{i}} = \frac{-\sum_{j} e^{-\beta X_{j}} \beta e^{-\beta X_{i}} + \beta (e^{-\beta X_{i}})^2} {(\sum_{j}e^{-\beta X_{j}})^2} = \beta Q_{i} \left(Q_{i} - 1\right)
 \end{equation}
 
 %%%%%%%%%%%%%%%%%%%%%
@@ -216,11 +216,11 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} \left(1 - \beta X_{k,n} + \beta \sum_{i}X_{i,n}q_{i,n}\right) + \ldots
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta Q_{k,n} \left(1 - \beta X_{k,n} + \beta \sum_{i}X_{i,n}Q_{i,n}\right) + \ldots
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} - \beta^{2}X_{k,n}q_{k,n} + \beta^{2}q_{k,n}\sum_{i}X_{i,n}q_{i,n} + \ldots
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta Q_{k,n} - \beta^{2}X_{k,n}Q_{k,n} + \beta^{2}Q_{k,n}\sum_{i}X_{i,n}Q_{i,n} + \ldots
 \end{displaymath}
 
 %%%%%%%%%%%%%%%%%%%%%
@@ -243,7 +243,7 @@ Here we describe a loss function for training a typical deep network in an unsup
 \end{displaymath}
 
 \begin{equation}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = \ldots - \beta q_{k,n}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \ldots - \beta Q_{k,n}
 \label{rightd}
 \end{equation}
 
@@ -253,32 +253,32 @@ Here we describe a loss function for training a typical deep network in an unsup
 \subsection{Combine Left and Right Entropy Derivatives}
 
 \begin{displaymath}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta q_{k,n} - \beta^{2} X_{k,n} q_{k,n} + \beta^{2} q_{k,n} \sum_{i}X_{i,n}q_{i,n} - \beta q_{k,n}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta Q_{k,n} - \beta^{2} X_{k,n} Q_{k,n} + \beta^{2} Q_{k,n} \sum_{i}X_{i,n}Q_{i,n} - \beta Q_{k,n}
 \end{displaymath}
 
 \begin{displaymath}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = - \beta^{2}X_{k,n}q_{k,n} + \beta^{2}q_{k,n}\sum_{i}X_{i,n}q_{i,n}
+    \frac{\partial H_{l}}{\partial X_{k,n}} = - \beta^{2}X_{k,n}Q_{k,n} + \beta^{2}Q_{k,n}\sum_{i}X_{i,n}Q_{i,n}
 \end{displaymath}
 
 \begin{equation}
-    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta^{2}q_{k,n}\left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right)
+    \frac{\partial H_{l}}{\partial X_{k,n}} = \beta^{2}Q_{k,n}\left(\sum_{i}X_{i,n}Q_{i,n} - X_{k,n}\right)
 \label{combd}
 \end{equation}
 
-\noindent where $q_{k,n}$ is given in equation \ref{qdef}.
+\noindent where $Q_{k,n}$ is given in equation \ref{qdef}.
 
 %%%%%%%%%%%%%%%%%%%%%
 % Cost Derivative
 %%%%%%%%%%%%%%%%%%%%%
-\subsection{Loss Derivative}
+\subsection{Cost Derivative}
 \noindent Equation \ref{cost} has two entropy terms in it, the gradient of which can be derived by following the same process outlined above.
 
 \begin{displaymath}
-    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} q_{k,n} \left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right) - \lambda \beta^{2} p_{k,n} \left( \sum_{l}X_{k,l}p_{k,l} - X_{k,n}\right)
+    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} Q_{k,n} \left(\sum_{i}X_{i,n}Q_{i,n} - X_{k,n}\right) - \lambda \beta^{2} P_{k,n} \left( \sum_{l}X_{k,l}P_{k,l} - X_{k,n}\right)
 \end{displaymath}
 
 \begin{equation} \label{costgrad}
-    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} \left( q_{k,n} \left(\sum_{i}X_{i,n}q_{i,n} - X_{k,n}\right) - \lambda p_{k,n} \left( \sum_{l}X_{k,l}p_{k,l} - X_{k,n}\right)\right)
+    \frac{\partial C}{\partial X_{k,n}} = \beta^{2} \left( Q_{k,n} \left(\sum_{i}X_{i,n}Q_{i,n} - X_{k,n}\right) - \lambda P_{k,n} \left( \sum_{l}X_{k,l}P_{k,l} - X_{k,n}\right)\right)
 \end{equation}
 
 % BibTeX users please use one of
