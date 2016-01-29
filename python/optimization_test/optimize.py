@@ -10,9 +10,9 @@ def pDist(x, beta):
     return np.multiply(np.exp(-beta * x), 1.0/np.array([np.sum(np.exp(-beta * x), axis=0),]*x.shape[0]))
 
 def entropy(prob, ax):
-    return - np.sum(np.multiply(prob, np.log(prob)), axis=ax)
+    return -np.sum(np.multiply(prob, np.log(prob)), axis=ax)
 
-def optfn(x, num_batch, num_nodes, lamb, beta, alpha):
+def optfn(x, num_batch, num_nodes, beta, node_loss_weight, batch_loss_weight):
     '''
     Optimization callback for scipy.optimize.minimize()
 
@@ -22,11 +22,11 @@ def optfn(x, num_batch, num_nodes, lamb, beta, alpha):
     assert(x.shape[0] == num_batch * num_nodes)
     x = x.reshape(num_batch, num_nodes)
 
-    loss = alpha * np.sum(entropy(qDist(x, beta), 1)) - lamb * np.sum(entropy(pDist(x, beta), 0))
+    loss = node_loss_weight * np.sum(entropy(qDist(x, beta), 1)) - batch_loss_weight * np.sum(entropy(pDist(x, beta), 0))
 
     qdiff = np.dot(qDist(x, beta), np.dot(x.transpose(), qDist(x, beta))) - np.multiply(qDist(x, beta), x)
     pdiff = np.dot(pDist(x, beta), np.dot(x.transpose(), pDist(x, beta))) - np.multiply(pDist(x, beta), x)
-    grad = np.power(beta,2.0) * (alpha * qdiff - lamb * pdiff)
+    grad = np.power(beta,2.0) * (node_loss_weight * qdiff - batch_loss_weight * pdiff)
 
     return loss, grad.flatten().astype(np.float64)
 
@@ -34,7 +34,7 @@ def main(args):
     #jac:True means that the optfn returns gradient as well as loss
     # requried for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, dogleg, trust-ncg
     minfn_args = {
-        "args": (args["num_batch"], args["num_nodes"], args["lamb"], args["beta"], args["alpha"]),
+        "args": (args["num_batch"], args["num_nodes"], args["beta"], args["node_loss_weight"], args["batch_loss_weight"]),
         "method": "L-BFGS-B", "jac": True,
         "options": {"maxcor": 8, "maxiter": args["n_iter"], "disp": args["verbose"]}
     }
@@ -52,17 +52,26 @@ def main(args):
     IPython.embed()
 
 if __name__ == "__main__":
-    plot_figs = False 
-    verbose = False
+    plot_figs = True
+    verbose = True 
     n_iter = 1000
 
     num_batch = 100
     num_nodes = 10
 
-    #lamb = 1.0
-    #alpha = 0.0000000000001
-    lamb = 0.0000000000001
-    alpha = 1.0
+
+    # Only the left term (minimize entropy per image)
+    #batch_loss_weight = 0.0000000000001
+    #node_loss_weight = 1.0
+
+    # Only the right term (maximize entropy per batch)
+    #batch_loss_weight = 1.0
+    #node_loss_weight = 0.0000000000001
+
+    # Both terms
+    batch_loss_weight = 0.2
+    node_loss_weight= 0.8
+
     beta = 1.0
 
     num_examples = 6
@@ -77,9 +86,9 @@ if __name__ == "__main__":
         "x0":x0,
         "num_batch":num_batch,
         "num_nodes":num_nodes,
-        "lamb":lamb,
         "beta":beta,
-        "alpha":alpha,
+        "batch_loss_weight":batch_loss_weight,
+        "node_loss_weight":node_loss_weight,
         "n_iter":n_iter,
         "verbose":verbose,
         "plot":plot_figs}
