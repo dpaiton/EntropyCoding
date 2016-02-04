@@ -10,7 +10,7 @@ net: "models/entropy/caffe_cifar.prototxt"
 #test_interval: 500
 
 # The base learning rate, momentum and the weight decay of the network.
-base_lr: 0.01
+base_lr: 0.001
 momentum: 0.9
 weight_decay: 0.0005
 
@@ -25,10 +25,10 @@ gamma: 0.0001
 display: 100
 
 # The maximum number of iterations
-max_iter: 800
+max_iter: 500
 
 # snapshot intermediate results
-snapshot: 5000
+snapshot: 10000
 snapshot_prefix: "models/entropy/outputEnt/"
 
 # solver mode: CPU or GPU

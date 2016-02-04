@@ -13,7 +13,7 @@ layer {
   }
   data_param {
     source: "/Users/dpaiton/Work/Datasets/CIFAR/cifar10/cifar10_train_lmdb"
-    batch_size: 100
+    batch_size: 200
     backend: LMDB
   }
 }
@@ -31,7 +31,7 @@ layer {
   }
   data_param {
     source: "/Users/dpaiton/Work/Datasets/CIFAR/cifar10/cifar10_test_lmdb"
-    batch_size: 100
+    batch_size: 200
     backend: LMDB
   }
 }
@@ -218,10 +218,10 @@ layer {
 
 layer{
    type: "Python"
-   name: "entropyLossLayer"
+   name: "NodeEntropyLossLayer"
    top: "enN"
    bottom: "ip1"
-   loss_weight: 0.8
+   loss_weight: 0.7
    python_param{
       module: 'pyloss'
       layer: 'NodeEntropyLossLayer'
@@ -231,28 +231,16 @@ layer{
 
 layer{
    type: "Python"
-   name: "entropyLossLayer"
+   name: "BatchEntropyLossLayer"
    top: "enB"
    bottom: "ip1"
-   loss_weight: 0.2
+   loss_weight: 0.3
    python_param{
       module: 'pyloss'
       layer: 'BatchEntropyLossLayer'
       #beta: .001
    }
 }
-
-#layer{
-#   type: "Python"
-#   name: "activityLossLayer"
-#   top: "ac1"
-#   bottom: "ip1"
-#   loss_weight: 0.1
-#   python_param{
-#      module: 'pyloss'
-#      layer: 'ActivityLossLayer'
-#   }
-#}
 
 #layer {
 #  name: "accuracy"
