@@ -43,11 +43,10 @@ solver = caffe.SGDSolver(modelDir + "solver.prototxt")
 net = solver.net
 #solver.net.copy_from(modelDir  + "models/entropy/output/lenet_iter_10000.caffemodel")
 
-IPython.embed()
 solver.solve()
-
-#img = vis_square(net.params['entConv1'][0].data.transpose(0, 2, 3, 1))
-#plt.imshow(img, cmap="Greys", interpolation="nearest")
-#plt.show(block=False)
-
 IPython.embed()
+
+img = vis_square(net.params['conv1'][0].data.transpose(0, 2, 3, 1))
+#img = vis_square(net.params['ip1'][0].data)
+plt.imshow(img, cmap="Greys", interpolation="nearest")
+plt.show(block=False)
