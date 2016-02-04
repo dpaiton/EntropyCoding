@@ -218,29 +218,42 @@ layer {
 
 layer{
    type: "Python"
-   name: "NodeEntropyLossLayer"
-   top: "enN"
+   name: "entropyLossLayer"
+   top: "en"
    bottom: "ip1"
-   loss_weight: 0.7
+   loss_weight: 1
    python_param{
       module: 'pyloss'
-      layer: 'NodeEntropyLossLayer'
-      #beta: .001
+      layer: 'entropyLossLayer'
+      param_str: "{'beta': -1.0, 'lamb': 0.1}"
    }
 }
 
-layer{
-   type: "Python"
-   name: "BatchEntropyLossLayer"
-   top: "enB"
-   bottom: "ip1"
-   loss_weight: 0.3
-   python_param{
-      module: 'pyloss'
-      layer: 'BatchEntropyLossLayer'
-      #beta: .001
-   }
-}
+#layer{
+#   type: "Python"
+#   name: "NodeEntropyLossLayer"
+#   top: "enN"
+#   bottom: "ip1"
+#   loss_weight: 0.7
+#   python_param{
+#      module: 'pyloss'
+#      layer: 'NodeEntropyLossLayer'
+#      #beta: .001
+#   }
+#}
+
+#layer{
+#   type: "Python"
+#   name: "BatchEntropyLossLayer"
+#   top: "enB"
+#   bottom: "ip1"
+#   loss_weight: 0.3
+#   python_param{
+#      module: 'pyloss'
+#      layer: 'BatchEntropyLossLayer'
+#      #beta: .001
+#   }
+#}
 
 #layer {
 #  name: "accuracy"
