@@ -37,7 +37,6 @@ def vis_square(data, padsize=1, padval=0):
 
     return np.squeeze(data)
 
-
 #net = caffe.Net("caffenet.prototxt", caffe.TRAIN)
 solver = caffe.SGDSolver(modelDir + "solver.prototxt")
 net = solver.net
@@ -45,9 +44,9 @@ net = solver.net
 
 IPython.embed()
 
-solver.solve()
-
-img = vis_square(net.params['conv1'][0].data.transpose(0, 2, 3, 1))
-#img = vis_square(net.params['ip1'][0].data)
-plt.imshow(img, cmap="Greys", interpolation="nearest")
-plt.show(block=False)
+#solver.solve()
+#
+#img = vis_square(net.params['conv1'][0].data.transpose(0, 2, 3, 1))
+##img = vis_square(net.params['ip1'][0].data)
+#plt.imshow(img, cmap="Greys", interpolation="nearest")
+#plt.show(block=False)

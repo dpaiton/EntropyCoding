@@ -13,7 +13,7 @@ layer {
   }
   data_param {
     source: "/Users/dpaiton/Work/Datasets/CIFAR/cifar10/cifar10_train_lmdb"
-    batch_size: 200
+    batch_size: 100
     backend: LMDB
   }
 }
@@ -31,7 +31,7 @@ layer {
   }
   data_param {
     source: "/Users/dpaiton/Work/Datasets/CIFAR/cifar10/cifar10_test_lmdb"
-    batch_size: 200
+    batch_size: 100
     backend: LMDB
   }
 }
@@ -225,7 +225,7 @@ layer{
    python_param{
       module: 'pyloss'
       layer: 'entropyLossLayer'
-      param_str: "{'beta': -1.0, 'lamb': 0.1}"
+      param_str: "{'beta': -1.0, 'alpha': 1.0, 'lambda': 0.1}"
    }
 }
 
