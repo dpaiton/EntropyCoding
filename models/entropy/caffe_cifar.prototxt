@@ -225,7 +225,7 @@ layer{
    python_param{
       module: 'pyloss'
       layer: 'entropyLossLayer'
-      param_str: "{'beta': -1.0, 'alpha': 1.0, 'lambda': 0.1}"
+      param_str: "{'beta': -1.0, 'alpha': 1.0, 'lambda': 0.01}"
    }
 }
 
