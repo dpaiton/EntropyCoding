@@ -87,13 +87,13 @@ class entropyLossLayer(caffe.Layer):
    def forward(self, bottom, top):
       fwd_out = self.forward_fn(bottom[0].data, self.beta_, self.alpha_, self.lamb_) 
       top[0].data[...] = fwd_out[0]
-      (self.figNo[0], self.figSubAxes[0], self.barId[0]) = plotIndiv(bottom[0].data, 'data', 15, (self.figNo[0], self.figSubAxes[0], self.barId[0]))
-      (self.figNo[1], self.figSubAxes[1], self.barId[1]) = plotIndiv(fwd_out[1], 'q prob', 15, (self.figNo[1], self.figSubAxes[1], self.barId[1]))
-      (self.figNo[2], self.figSubAxes[2]) = plotBatch(fwd_out[2], 'p prob', (self.figNo[2], self.figSubAxes[2]))
-      print '-------\ntot loss: ' + str(fwd_out[0])
-      print 'q loss: ' + str(self.forward_fn(bottom[0].data, self.beta_, self.alpha_*1.0, 0.0)[0])
-      print 'p loss: ' + str(self.forward_fn(bottom[0].data, self.beta_, 0.0, self.lamb_*1.0)[0])
+      #(self.figNo[0], self.figSubAxes[0], self.barId[0]) = plotIndiv(bottom[0].data, 'data', 15, (self.figNo[0], self.figSubAxes[0], self.barId[0]))
+      #(self.figNo[1], self.figSubAxes[1], self.barId[1]) = plotIndiv(fwd_out[1], 'q prob', 15, (self.figNo[1], self.figSubAxes[1], self.barId[1]))
+      #(self.figNo[2], self.figSubAxes[2]) = plotBatch(fwd_out[2], 'p prob', (self.figNo[2], self.figSubAxes[2]))
+      #print '-------\ntot loss: ' + str(fwd_out[0])
+      #print 'q loss: ' + str(self.forward_fn(bottom[0].data, self.beta_, self.alpha_*1.0, 0.0)[0])
+      #print 'p loss: ' + str(self.forward_fn(bottom[0].data, self.beta_, 0.0, self.lamb_*1.0)[0])
 
    def backward(self, top, propagate_down, bottom):
       bottom[0].diff[...] = self.grad_fn(bottom[0].data, self.beta_, self.lamb_, self.alpha_)
-      print 'grad max: ' + str(np.max(np.abs(bottom[0].diff[...])))
+      #print 'grad max: ' + str(np.max(np.abs(bottom[0].diff[...])))
