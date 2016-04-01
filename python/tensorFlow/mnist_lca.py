@@ -6,16 +6,16 @@ import IPython
 from tensorflow.examples.tutorials.mnist import input_data
 
 ## User-defined parameters
-n_    = 784         # num_pixels
-m_    = 1568        # num_elements
-lamb_ = 0.1         # threshold potential
-dt_   = 0.001       # [s] discrete time constant
-tau_  = 0.01        # [s] LCA time constant
-lr_   = 6.0         # Learning rate for weight updates
-batch_ = 16         # number of images in a batch
-num_steps_ = 100    # number of steps to run LCA
-num_trials_ = 100   # number of batches to learn weights
-thresh_ = 'hard'    # type of thresholding for LCA -> can be 'hard' or 'soft'
+n_    = 784            # num_pixels
+m_    = 500            # num_elements
+lamb_ = 0.1            # threshold potential
+dt_   = 0.001          # [s] discrete time constant
+tau_  = 0.01           # [s] LCA time constant
+lr_   = 0.001          # Learning rate for weight updates
+batch_ = 60            # number of images in a batch
+num_steps_ = 50        # number of steps to run LCA
+num_trials_ = 5000     # number of batches to learn weights
+thresh_ = 'hard'       # type of thresholding for LCA -> can be 'hard' or 'soft'
 tf.set_random_seed(1234567890)
 
 ## Helper functions
@@ -54,12 +54,20 @@ def T(u, lamb, thresh_type='soft'):
     else:
         return tf.select(tf.greater_equal(u, lamb), u, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
 
-def normalize_weights(phi):
+def normalize_image(img):
     """
-    Normalize the phi matrix
+    Normalize input image to have mean 0 and std 1
+
+    expects input to be numpy ndarray
     """
-    norm_mat = tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(phi, 2.0), reduction_indices=0)))
-    return tf.matmul(phi, norm_mat)
+    return np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
+
+def normalize_weights(weights):
+    """
+    Normalize the weights matrix
+    """
+    norm_mat = tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(weights, 2.0), reduction_indices=0)))
+    return tf.matmul(weights, norm_mat)
 
 def compute_recon(a, phi):
     """
@@ -107,6 +115,7 @@ def display_data(data, title='', prev_fig=None):
 
     return (fig_no, sub_axis, axis_image)
 
+## TODO: It would be good to write out some more analysis functions
 #def compute_recon_error(s, recon):
 #    """
 #    Returns the l_2 distance between s and recon
@@ -133,7 +142,7 @@ def display_data(data, title='', prev_fig=None):
 sess = tf.InteractiveSession()
 
 ## Setup data
-mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
+dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 ## Setup constants & placeholders
 s = tf.placeholder(tf.float32, shape=[None, n_]) # Placeholder for data
@@ -170,27 +179,27 @@ step_phi = tf.group(phi.assign(dphi))
 tf.initialize_all_variables().run()
 
 phi_prev_fig = None
+recon_prev_fig = None
 ## Select images
 for trial in range(num_trials_):
-    batch = mnist.train.next_batch(batch_)
+    batch = dataset.train.next_batch(batch_)
 
-    recon_prev_fig = None
     ## Converge network
     for t in range(num_steps_):
         ## Step simulation
-        step_lca.run({s:batch[0], eta:dt_/tau_, lamb:lamb_, thresh:thresh_})
-        if t % 5 == 0:
-            print("time step %g, max val of u is %g"%(t, np.max(u.eval())))
-            ## Plot reconstructions
-            r = compute_recon(T(u, lamb, thresh_type=thresh), phi)
-            recon_prev_fig = display_data(
-                r.eval({u:u.eval(), lamb:lamb_, thresh:thresh_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-                title='Reconstructions for time step '+str(t)+'in trial '+str(trial), prev_fig=recon_prev_fig)
+        step_lca.run({s:normalize_image(batch[0]), eta:dt_/tau_, lamb:lamb_, thresh:thresh_})
 
-    step_phi.run({s:batch[0], lr:lr_, lamb:lamb_, thresh:thresh_})
-    if trial % 5 == 0:
+    step_phi.run({s:normalize_image(batch[0]), lr:lr_, lamb:lamb_, thresh:thresh_})
+    if trial % 2 == 0:
+        sparsity = 100*np.count_nonzero(T(u, lamb_, thresh_).eval())/np.float32(np.size(T(u, lamb_, thresh_).eval()))
+        print('Finished trial %g, max val of u is %g, num active of a was %g percent'%(trial, u.eval().max(), sparsity))
+        r = compute_recon(T(u, lamb, thresh_type=thresh), phi)
+        recon_prev_fig = display_data(
+            r.eval({u:u.eval(), lamb:lamb_, thresh:thresh_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+            title='Reconstructions for time step '+str(t)+' in trial '+str(trial), prev_fig=recon_prev_fig)
         phi_prev_fig = display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
+    #IPython.embed()
 
 #activity = u.eval()
 IPython.embed()
