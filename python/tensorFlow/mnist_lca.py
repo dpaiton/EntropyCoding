@@ -149,7 +149,7 @@ s = tf.placeholder(tf.float32, shape=[None, n_]) # Placeholder for data
 r = tf.placeholder(tf.float32, shape=[None, n_]) # Placeholder for reconstruction
 eta = tf.placeholder(tf.float32, shape=())       # Placeholder for LCA update rate
 lamb = tf.placeholder(tf.float32, shape=())      # Placeholder for threshold parameter lambda
-thresh = tf.placeholder(tf.string, shape=())    # Placeholder for threshold type
+thresh = tf.placeholder(tf.string, shape=())     # Placeholder for threshold type
 lr = tf.placeholder(tf.float32, shape=())        # Placeholder for weight learning rate
 
 ## Initialize membrane potential
@@ -166,6 +166,7 @@ phi = tf.Variable(normalize_weights(tf.truncated_normal([m_, n_], mean=phi_init_
 
 ## Discritized membrane update rule
 du = (1 - eta) * u + eta * (b(s, phi) - tf.matmul(T(u, lamb, thresh_type=thresh), G(phi)))
+#du = u + eta * (b(s, phi) - tf.matmul(T(u, lamb, thresh_type=thresh), G(phi)))
 
 ## Discritized weight update rule
 dphi = normalize_weights(phi +
@@ -175,6 +176,8 @@ dphi = normalize_weights(phi +
 ## Operation to update the state
 step_lca = tf.group(u.assign(du))
 step_phi = tf.group(phi.assign(dphi))
+
+saver = tf.train.Saver(var_list=[phi], max_to_keep=5, keep_checkpoint_every_n_hours=1, restore_sequentially=True)
 
 tf.initialize_all_variables().run()
 
@@ -199,6 +202,8 @@ for trial in range(num_trials_):
             title='Reconstructions for time step '+str(t)+' in trial '+str(trial), prev_fig=recon_prev_fig)
         phi_prev_fig = display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
+    if trial % 100 == 0:
+        saver.save(sess, './checkpoints/lca_checkpoint', global_step=trial)
     #IPython.embed()
 
 #activity = u.eval()
