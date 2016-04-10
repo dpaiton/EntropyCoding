@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import plot_functions as pf
+import helper_functions as hf
 import IPython
 
 from tensorflow.examples.tutorials.mnist import input_data
@@ -43,16 +43,16 @@ per Rolfe & Lecun (2013)
  Magnitude of rows of C are bounded by 5
 """
 # Encoding weights
-E = tf.Variable(pf.normalize_rows(tf.truncated_normal([n_, m_], mean=0.0, stddev=np.sqrt(1.0),
+E = tf.Variable(hf.normalize_rows(tf.truncated_normal([n_, m_], mean=0.0, stddev=np.sqrt(1.0),
     dtype=tf.float32), 1.25/num_steps_), trainable=True) 
 # Decoding weights
-D = tf.Variable(pf.normalize_cols(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0), 
+D = tf.Variable(hf.normalize_cols(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0), 
     dtype=tf.float32), 1.0), trainable=True) 
 # Explaining away weights
 S = tf.Variable(tf.truncated_normal([n_, n_], mean=0.0, stddev=np.sqrt(1.0),
     dtype=tf.float32), trainable=True) 
 # Classification matrix
-C = tf.Variable(pf.normalize_rows(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
+C = tf.Variable(hf.normalize_rows(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
     dtype=tf.float32), 5.0), trainable=True) 
 # Bias
 b = tf.Variable(tf.truncated_normal([1, n_], mean=0.0, stddev=np.sqrt(1.0),
@@ -100,13 +100,13 @@ for batch_idx in range(num_trials_):
     batch = dataset.train.next_batch(batch_)
     ## First find image code, z
     for t in range(int(num_steps_)):
-        step_z.run({x:pf.normalize_image(batch[0])})
+        step_z.run({x:hf.normalize_image(batch[0])})
         if np.any(np.isnan(z.eval())):
             print("ERROR: inner loop: time step %g - some z values are nan."%(t))
             IPython.embed()
 
     ## Use converged z to compute loss & update weights
-    #train_step.run({x:pf.normalize_image(batch[0]), y:batch[1], gamma:0.0})
+    #train_step.run({x:hf.normalize_image(batch[0]), y:batch[1], gamma:0.0})
     
     """
     Need to re-normalize weight matrices
@@ -115,36 +115,36 @@ for batch_idx in range(num_trials_):
      Magnitude of columns of D are bounded by 1
      Magnitude of rows of C are bounded by 5
     """
-    #E = pf.normalize_rows(E, 1.25/num_steps_)
-    #D = pf.normalize_cols(D, 1.0)
-    #C = pf.normalize_rows(C, 5.0)
+    #E = hf.normalize_rows(E, 1.25/num_steps_)
+    #D = hf.normalize_cols(D, 1.0)
+    #C = hf.normalize_rows(C, 5.0)
     
     if np.any(np.isnan(z.eval())):
         print("ERROR: outer loop: time step %g - some z values are nan."%(t))
         IPython.embed()
 
     if batch_idx % train_display_ == 0:
-        train_accuracy = accuracy.eval({x:pf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
+        train_accuracy = accuracy.eval({x:hf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
         print("Batch number %g out of %g"%(batch_idx, num_trials_))
         print("\ttraining accuracy:\t%g"%(train_accuracy))
-        print("\teuclidean loss:\t%g"%(euclidean_loss.eval({x:pf.normalize_image(batch[0])})))
+        print("\teuclidean loss:\t%g"%(euclidean_loss.eval({x:hf.normalize_image(batch[0])})))
         print("\tsparse loss:\t%g"%(sparse_loss.eval({z:z.eval()})))
         print("\tcross-entropy loss:\t%g"%(cross_entropy_loss.eval({y:batch[1]})))
 
     if batch_idx % val_display_ == 0:
-        e_prev_fig = pf.display_data(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+        e_prev_fig = hf.display_data(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
             title='Encoding matrix at trial number '+str(batch_idx), prev_fig=e_prev_fig)
-        d_prev_fig = pf.display_data(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+        d_prev_fig = hf.display_data(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
             title='Decoding matrix at trial number '+str(batch_idx), prev_fig=d_prev_fig)
-        s_prev_fig = pf.display_data(S.eval(),
+        s_prev_fig = hf.display_data(S.eval(),
             title='Explaining-away matrix at trial number '+str(batch_idx), prev_fig=s_prev_fig)
-        c_prev_fig = pf.display_data(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+        c_prev_fig = hf.display_data(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Classification matrix at trial number '+str(batch_idx), prev_fig=c_prev_fig)
-        b_prev_fig = pf.display_data(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
+        b_prev_fig = hf.display_data(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Bias at trial number '+str(batch_idx)+'\nEach pixel represents the bias for a neuron',
             prev_fig=b_prev_fig)
         batch = dataset.validation.next_batch(batch_)
-        val_accuracy = accuracy.eval({x:pf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
+        val_accuracy = accuracy.eval({x:hf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
         print("---validation accuracy %g"%(val_accuracy))
         
 IPython.embed()
