@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
+import plot_functions as pf
 import IPython
 
 from tensorflow.examples.tutorials.mnist import input_data
@@ -76,46 +77,7 @@ def compute_recon(a, phi):
     """
     return tf.matmul(a, phi)
 
-def display_data(data, title='', prev_fig=None):
-    """
-    Display input data as an image
-
-    data should be of shape (n, height, width) or (n, height, width, 3)
-    """
-    # normalize input
-    data = (data - data.min()) / (data.max() - data.min())
-
-    n = int(np.ceil(np.sqrt(data.shape[0])))
-    padding = (((0, n ** 2 - data.shape[0]),
-               (1, 1), (1, 1))                 # add some space between filters
-               + ((0, 0),) * (data.ndim - 3))  # don't pad the last dimension (if there is one)
-
-    data = np.pad(data, padding, mode='constant', constant_values=1)
-
-    # tile the filters into an image
-    data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + tuple(range(4, data.ndim + 1)))
-    data = data.reshape((n * data.shape[1], n * data.shape[3]) + data.shape[4:])
-
-    if prev_fig is None:
-        fig_no, sub_axis = plt.subplots(1)
-        axis_image = sub_axis.imshow(data, cmap='Greys', interpolation='nearest')
-    else:
-        (fig_no, sub_axis, axis_image) = prev_fig
-        axis_image.set_data(data)
-
-    for axis in fig_no.axes:
-        axis.get_yaxis().set_visible(False)
-        axis.get_xaxis().set_visible(False)
-
-    fig_no.suptitle(title)
-    if prev_fig is None:
-        fig_no.show()
-    else:
-        fig_no.canvas.draw()
-
-    return (fig_no, sub_axis, axis_image)
-
-## TODO: It would be good to write out some more analysis functions
+## TODO: Write out some more analysis functions
 #def compute_recon_error(s, recon):
 #    """
 #    Returns the l_2 distance between s and recon
@@ -136,7 +98,6 @@ def display_data(data, title='', prev_fig=None):
 #    current allowed values for p are p={0, 1}
 #    """
 #    return tf.matmul(a, phi)
-
 
 ## Interactive session allows us to enter IPython for analysis
 sess = tf.InteractiveSession()
@@ -164,9 +125,8 @@ phi_init_var = 1.0
 phi = tf.Variable(normalize_weights(tf.truncated_normal([m_, n_], mean=phi_init_mean,
     stddev=np.sqrt(phi_init_var), dtype=tf.float32)))
 
-## Discritized membrane update rule
+## Discritized membrane update rule TODO: Where does 1-eta come from in hard LCA paper?
 du = (1 - eta) * u + eta * (b(s, phi) - tf.matmul(T(u, lamb, thresh_type=thresh), G(phi)))
-#du = u + eta * (b(s, phi) - tf.matmul(T(u, lamb, thresh_type=thresh), G(phi)))
 
 ## Discritized weight update rule
 dphi = normalize_weights(phi +
@@ -197,10 +157,10 @@ for trial in range(num_trials_):
         sparsity = 100*np.count_nonzero(T(u, lamb_, thresh_).eval())/np.float32(np.size(T(u, lamb_, thresh_).eval()))
         print('Finished trial %g, max val of u is %g, num active of a was %g percent'%(trial, u.eval().max(), sparsity))
         r = compute_recon(T(u, lamb, thresh_type=thresh), phi)
-        recon_prev_fig = display_data(
+        recon_prev_fig = pf.display_data(
             r.eval({u:u.eval(), lamb:lamb_, thresh:thresh_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Reconstructions for time step '+str(t)+' in trial '+str(trial), prev_fig=recon_prev_fig)
-        phi_prev_fig = display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+        phi_prev_fig = pf.display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
     if trial % 100 == 0:
         saver.save(sess, './checkpoints/lca_checkpoint', global_step=trial)
