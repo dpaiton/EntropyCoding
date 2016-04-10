@@ -3,16 +3,22 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import IPython
 
+"""
+Display input data as an image
+Outputs:
+    fig_no: index for figure call
+    sub_axis: index for subplot call
+    axis_image: index for imshow call
+Inpus:
+    data : np.ndarray of shape (height, width) or (n, height, width) or (n, height, width, 3)
+    title: string for title of figure
+    prev_fig: tuple containing (fig_no, sub_axis, axis_image) from previous display_data() call
+"""
 def display_data(data, title='', prev_fig=None):
-    """
-    Display input data as an image
-
-    data should be of shape (n, height, width) or (n, height, width, 3)
-    """
     # normalize input
     data = (data - data.min()) / (data.max() - data.min())
 
-    if len(data.shape) == 3:
+    if len(data.shape) >= 3: #TODO: Allow for condition where data is (height, width, 3)
         n = int(np.ceil(np.sqrt(data.shape[0])))
         padding = (((0, n ** 2 - data.shape[0]),
                    (1, 1), (1, 1))                 # add some space between filters
@@ -81,7 +87,7 @@ def normalize_cols(matrix, bound):
     #nump_norm_mat = nump_sub_mat / (nump_max_mat - nump_min_mat)
     #nump_bound_norm_mat = norm_mat * bound
     #IPython.embed()
-    return matrix#bound_norm_mat
+    return bound_norm_mat
 
 """ 
 Independently normalize the rows of matrix to be bounded by bound
@@ -108,4 +114,4 @@ def normalize_rows(matrix, bound):
     #nump_sub_mat = nump_matrix - nump_min_mat
     #nump_norm_mat = nump_sub_mat / (nump_max_mat - nump_min_mat)
     #nump_bound_norm_mat = bound * nump_norm_mat
-    return matrix#bound_norm_mat
+    return bound_norm_mat

@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import helper_functions as hf
 import IPython
-
 from tensorflow.examples.tutorials.mnist import input_data
 
 ## User-defined parameters
@@ -12,12 +11,13 @@ n_ = 400               # num_hidden_units
 l_ = 10                # num_categories
 lambda_ = 0.1          # sparsity tradeoff parameter
 gamma_ = 0.2           # supervised loss tradeoff parameter
-batch_ = 60            # number of images in a batch
-num_steps_ = 10.0      # number of time steps for enoding
+eta_ = 0.01            # time constant for z update 
+batch_ = 10            # number of images in a batch
+num_steps_ = 5.0       # number of time steps for enoding
 num_trials_ = 1000000  # number of batches to learn weights
-train_display_ = 100   # How often to update training stats outputs
-val_display_ = 1000    # How often to update validation stats outputs
-learning_rate_ = 0.001 # Learning rate for SGD
+train_display_ = 10    # How often to update training stats outputs
+val_display_ = 100     # How often to update validation stats outputs
+learning_rate_ = 0.01  # Learning rate for SGD
 
 # Interactive session allows us to enter IPython for analysis
 sess = tf.InteractiveSession()
@@ -58,11 +58,11 @@ C = tf.Variable(hf.normalize_rows(tf.truncated_normal([l_, n_], mean=0.0, stddev
 b = tf.Variable(tf.truncated_normal([1, n_], mean=0.0, stddev=np.sqrt(1.0),
     dtype=tf.float32), trainable=True)  
 
-## Discretized update rule: z(t+1) = z(t) + x E^T + z(t) S^T - b
-z_update = \
+## Discretized update rule: z(t+1) = eta * (x E^T + z(t) S^T - b)
+z_update = eta_ * (\
     tf.matmul(x, tf.transpose(E)) + \
-    tf.matmul(z, tf.transpose(S)) - \
-    tf.matmul(tf.constant(np.ones([batch_, 1]), dtype=tf.float32), b)
+    tf.matmul(z, S) - \
+    tf.matmul(tf.constant(np.ones([batch_, 1]), dtype=tf.float32), b))
 zeros = tf.constant(np.zeros([int(shp) for shp in z.get_shape()], dtype=np.float32))  
 dz = tf.select(tf.greater_equal(zeros, z_update), zeros, z_update) # dz = max(0, z_update)
 step_z = tf.group(z.assign(dz))
@@ -72,7 +72,7 @@ y_ = tf.nn.softmax(tf.matmul(norm_z, tf.transpose(C))) # label output
 x_ = tf.matmul(z, tf.transpose(D))  # reconstruction
 
 ## Loss fucntions
-cross_entropy_loss = -tf.reduce_sum(y_ * tf.log(y)) # reduce_sum sums across all dim (images in minibatch, classes)
+cross_entropy_loss = -tf.reduce_sum(y * tf.log(y_)) # reduce_sum sums across all dim (images in minibatch, classes)
 euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(x, x_), 2.0)))
 sparse_loss = tf.reduce_sum(tf.abs(z))
 unsupervised_loss = euclidean_loss + lambda_ * sparse_loss
@@ -102,12 +102,12 @@ for batch_idx in range(num_trials_):
     for t in range(int(num_steps_)):
         step_z.run({x:hf.normalize_image(batch[0])})
         if np.any(np.isnan(z.eval())):
-            print("ERROR: inner loop: time step %g - some z values are nan."%(t))
+            print("ERROR: inner loop: batch number %g, time step %g - some z values are nan."%(batch_idx, t))
             IPython.embed()
 
     ## Use converged z to compute loss & update weights
-    #train_step.run({x:hf.normalize_image(batch[0]), y:batch[1], gamma:0.0})
-    
+    train_step.run({x:hf.normalize_image(batch[0]), y:batch[1], gamma:0.0})
+     
     """
     Need to re-normalize weight matrices
     per Rolfe & Lecun (2013)
@@ -115,20 +115,22 @@ for batch_idx in range(num_trials_):
      Magnitude of columns of D are bounded by 1
      Magnitude of rows of C are bounded by 5
     """
-    #E = hf.normalize_rows(E, 1.25/num_steps_)
-    #D = hf.normalize_cols(D, 1.0)
-    #C = hf.normalize_rows(C, 5.0)
+    E = hf.normalize_rows(E, 1.25/num_steps_)
+    D = hf.normalize_cols(D, 1.0)
+    C = hf.normalize_rows(C, 5.0)
     
     if np.any(np.isnan(z.eval())):
-        print("ERROR: outer loop: time step %g - some z values are nan."%(t))
+        print("ERROR: outer loop: batch number %g, time step %g - some z values are nan."%(batch_idx, t))
         IPython.embed()
+
+    z.assign(zeros)
 
     if batch_idx % train_display_ == 0:
         train_accuracy = accuracy.eval({x:hf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
         print("Batch number %g out of %g"%(batch_idx, num_trials_))
-        print("\ttraining accuracy:\t%g"%(train_accuracy))
-        print("\teuclidean loss:\t%g"%(euclidean_loss.eval({x:hf.normalize_image(batch[0])})))
-        print("\tsparse loss:\t%g"%(sparse_loss.eval({z:z.eval()})))
+        print("\ttrain accuracy:\t\t%g"%(train_accuracy))
+        print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({x:hf.normalize_image(batch[0])})))
+        print("\tsparse loss:\t\t%g"%(sparse_loss.eval({z:z.eval()})))
         print("\tcross-entropy loss:\t%g"%(cross_entropy_loss.eval({y:batch[1]})))
 
     if batch_idx % val_display_ == 0:
@@ -136,6 +138,7 @@ for batch_idx in range(num_trials_):
             title='Encoding matrix at trial number '+str(batch_idx), prev_fig=e_prev_fig)
         d_prev_fig = hf.display_data(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
             title='Decoding matrix at trial number '+str(batch_idx), prev_fig=d_prev_fig)
+        ## TODO: Should plot S - Identity
         s_prev_fig = hf.display_data(S.eval(),
             title='Explaining-away matrix at trial number '+str(batch_idx), prev_fig=s_prev_fig)
         c_prev_fig = hf.display_data(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
@@ -147,4 +150,5 @@ for batch_idx in range(num_trials_):
         val_accuracy = accuracy.eval({x:hf.normalize_image(batch[0]), y:batch[1], z:z.eval().astype(np.float32)})
         print("---validation accuracy %g"%(val_accuracy))
         
+print("Model has finished learning.")
 IPython.embed()
