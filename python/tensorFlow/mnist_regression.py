@@ -47,5 +47,7 @@ with tf.Session() as sess: # this way we don't have to close the session
         # Determine test accuracy
         test_accuracy = sess.run(accuracy, feed_dict={x: mnist.test.images, y_:mnist.test.labels})
 
+        print("Test accuracy = %g"%test_accuracy)
+
         import IPython
         IPython.embed()
