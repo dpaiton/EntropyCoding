@@ -72,20 +72,20 @@ Inputs:
     bound  : flaot32
 """
 def normalize_cols(matrix, bound):
-    num_rows = matrix.get_shape()[0]
-    matrix_eval = matrix.eval()
-    max_mat = np.array([np.max(matrix_eval, axis=0),]*num_rows)
-    min_mat = np.array([np.min(matrix_eval, axis=0),]*num_rows)
-    sub_mat = tf.sub(matrix, tf.constant(min_mat))
-    norm_mat = tf.truediv(sub_mat, tf.constant(max_mat - min_mat))
+    num_rows = int(matrix.get_shape()[0])
+    ones_mat = tf.constant(np.ones([num_rows, 1], dtype=np.float32))
+    max_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_max(matrix, reduction_indices=0), 0))
+    min_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_min(matrix, reduction_indices=0), 0))
+    norm_mat = tf.truediv(tf.sub(matrix, min_mat), tf.sub(max_mat,min_mat))
     bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
+    #
     #nump_matrix = np.random.randn(12,5)
     #nump_num_rows = nump_matrix.shape[0]
     #nump_max_mat = np.array([np.max(nump_matrix, axis=0),]*nump_num_rows)
     #nump_min_mat = np.array([np.min(nump_matrix, axis=0),]*nump_num_rows)
     #nump_sub_mat = nump_matrix - nump_min_mat
     #nump_norm_mat = nump_sub_mat / (nump_max_mat - nump_min_mat)
-    #nump_bound_norm_mat = norm_mat * bound
+    #nump_bound_norm_mat = nump_norm_mat * bound
     #IPython.embed()
     return bound_norm_mat
 
@@ -100,13 +100,13 @@ Inputs:
     bound  : flaot32
 """
 def normalize_rows(matrix, bound):
-    num_cols = matrix.get_shape()[1]
-    matrix_eval = matrix.eval()
-    max_mat = np.array([np.max(matrix_eval, axis=1),]*num_cols).T
-    min_mat = np.array([np.min(matrix_eval, axis=1),]*num_cols).T
-    sub_mat = tf.sub(matrix, tf.constant(min_mat))
-    norm_mat = tf.truediv(sub_mat, tf.constant(max_mat - min_mat))
-    bound_norm_mat = tf.mul(norm_mat, tf.constant(bound))
+    num_cols = int(matrix.get_shape()[1])
+    ones_mat = tf.constant(np.ones([1, num_cols], dtype=np.float32))
+    max_mat = tf.matmul(tf.expand_dims(tf.reduce_max(matrix, reduction_indices=1), 1), ones_mat)
+    min_mat = tf.matmul(tf.expand_dims(tf.reduce_min(matrix, reduction_indices=1), 1), ones_mat)
+    norm_mat = tf.truediv(tf.sub(matrix, min_mat), tf.sub(max_mat,min_mat))
+    bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
+    #
     #nump_matrix = np.random.randn(12,5)
     #nump_num_cols = nump_matrix.shape[1]
     #nump_max_mat = np.array([np.max(nump_matrix, axis=1),]*nump_num_cols).T
