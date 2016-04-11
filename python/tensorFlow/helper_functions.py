@@ -52,13 +52,19 @@ def display_data(data, title='', prev_fig=None):
 """ 
 Normalize input image to have mean 0 and std 1
 Outputs:
-    normalized image
+    output : normalized image
 Inputs:
     img : numpy ndarray
+    divide_l2 : (default False), set to True if you wish to divide the normalized image by its l2 norm
 """
-def normalize_image(img):
-    img_l2 = np.sqrt(np.sum(np.power(img, 2.0)))
-    return np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])]) / img_l2
+def normalize_image(img, divide_l2=False):
+    if divide_l2:
+        img_l2 = np.sqrt(np.sum(np.power(img, 2.0)))
+        output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])]) / img_l2
+    else:
+        output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
+    return output
+
 
 
 """ 

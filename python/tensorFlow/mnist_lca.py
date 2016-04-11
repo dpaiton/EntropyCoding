@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import plot_functions as pf
+import helper_functions as hf
 import IPython
 
 from tensorflow.examples.tutorials.mnist import input_data
@@ -54,14 +54,6 @@ def T(u, lamb, thresh_type='soft'):
         return tf.select(tf.greater_equal(u, lamb), u-lamb, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
     else:
         return tf.select(tf.greater_equal(u, lamb), u, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
-
-def normalize_image(img):
-    """
-    Normalize input image to have mean 0 and std 1
-
-    expects input to be numpy ndarray
-    """
-    return np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
 
 def normalize_weights(weights):
     """
@@ -137,6 +129,11 @@ dphi = normalize_weights(phi +
 step_lca = tf.group(u.assign(du))
 step_phi = tf.group(phi.assign(dphi))
 
+## Loss functions (for analysis)
+s_ = compute_recon(T(u, lamb_, thresh_type=thresh_), phi)
+euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
+sparse_loss = tf.reduce_sum(tf.abs(T(u, lamb_, thresh_type=thresh_)))
+
 saver = tf.train.Saver(var_list=[phi], max_to_keep=5, keep_checkpoint_every_n_hours=1, restore_sequentially=True)
 
 tf.initialize_all_variables().run()
@@ -150,21 +147,23 @@ for trial in range(num_trials_):
     ## Converge network
     for t in range(num_steps_):
         ## Step simulation
-        step_lca.run({s:normalize_image(batch[0]), eta:dt_/tau_, lamb:lamb_, thresh:thresh_})
+        step_lca.run({s:hf.normalize_image(batch[0], divide_l2=False), eta:dt_/tau_, lamb:lamb_, thresh:thresh_})
 
-    step_phi.run({s:normalize_image(batch[0]), lr:lr_, lamb:lamb_, thresh:thresh_})
+    step_phi.run({s:hf.normalize_image(batch[0], divide_l2=False), lr:lr_, lamb:lamb_, thresh:thresh_})
     if trial % 2 == 0:
         sparsity = 100*np.count_nonzero(T(u, lamb_, thresh_).eval())/np.float32(np.size(T(u, lamb_, thresh_).eval()))
         print('Finished trial %g, max val of u is %g, num active of a was %g percent'%(trial, u.eval().max(), sparsity))
+        print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:hf.normalize_image(batch[0],
+            divide_l2=False), u:u.eval(), phi:phi.eval()})))
+        print("\tsparse loss:\t\t%g"%(sparse_loss.eval({u:u.eval()})))
         r = compute_recon(T(u, lamb, thresh_type=thresh), phi)
-        recon_prev_fig = pf.display_data(
+        recon_prev_fig = hf.display_data(
             r.eval({u:u.eval(), lamb:lamb_, thresh:thresh_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Reconstructions for time step '+str(t)+' in trial '+str(trial), prev_fig=recon_prev_fig)
-        phi_prev_fig = pf.display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+        phi_prev_fig = hf.display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
     if trial % 100 == 0:
         saver.save(sess, './checkpoints/lca_checkpoint', global_step=trial)
     #IPython.embed()
 
-#activity = u.eval()
 IPython.embed()
