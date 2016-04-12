@@ -107,7 +107,8 @@ init_op = tf.initialize_all_variables()
 if checkpoint_ != -1:
     saver = tf.train.Saver(max_to_keep=int(np.float32(num_trials_)/np.float32(checkpoint_)))
     import os
-    os.makedirs('checkpoints')
+    if not os.path.exists('checkpoints'):
+        os.makedirs('checkpoints')
 
 with tf.Session() as sess:
     with tf.device('/cpu:0'): # specify hardware, could be cpu:0, gpu:0, gpu:1, etc
