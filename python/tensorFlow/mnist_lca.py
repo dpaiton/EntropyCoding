@@ -16,6 +16,7 @@ lr_   = 0.001          # Learning rate for weight updates
 batch_ = 60            # number of images in a batch
 num_steps_ = 50        # number of steps to run LCA
 num_trials_ = 5000     # number of batches to learn weights
+
 thresh_ = 'hard'       # type of thresholding for LCA -> can be 'hard' or 'soft'
 tf.set_random_seed(1234567890)
 
@@ -54,13 +55,6 @@ def T(u, lamb, thresh_type='soft'):
         return tf.select(tf.greater_equal(u, lamb), u-lamb, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
     else:
         return tf.select(tf.greater_equal(u, lamb), u, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
-
-def normalize_weights(weights):
-    """
-    Normalize the weights matrix
-    """
-    norm_mat = tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(weights, 2.0), reduction_indices=0)))
-    return tf.matmul(weights, norm_mat)
 
 def compute_recon(a, phi):
     """
@@ -114,14 +108,14 @@ u = tf.Variable(np.zeros([batch_, m_], dtype=np.float32))
 # are dropped and re-picked.
 phi_init_mean = 0.0
 phi_init_var = 1.0
-phi = tf.Variable(normalize_weights(tf.truncated_normal([m_, n_], mean=phi_init_mean,
+phi = tf.Variable(hf.l2_normalize_rows(tf.truncated_normal([m_, n_], mean=phi_init_mean,
     stddev=np.sqrt(phi_init_var), dtype=tf.float32)))
 
 ## Discritized membrane update rule TODO: Where does 1-eta come from in hard LCA paper?
 du = (1 - eta) * u + eta * (b(s, phi) - tf.matmul(T(u, lamb, thresh_type=thresh), G(phi)))
 
 ## Discritized weight update rule
-dphi = normalize_weights(phi +
+dphi = hf.l2_normalize_rows(phi +
     lr * tf.matmul(tf.transpose(T(u, lamb, thresh_type=thresh)),
     s - compute_recon(T(u, lamb, thresh_type=thresh), phi)))
 
@@ -155,7 +149,7 @@ for trial in range(num_trials_):
         print('Finished trial %g, max val of u is %g, num active of a was %g percent'%(trial, u.eval().max(), sparsity))
         print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:hf.normalize_image(batch[0],
             divide_l2=False), u:u.eval(), phi:phi.eval()})))
-        print("\tsparse loss:\t\t%g"%(sparse_loss.eval({u:u.eval()})))
+        print("\tscaled sparse loss:\t\t%g"%(sparse_loss.eval({u:u.eval()})))
         r = compute_recon(T(u, lamb, thresh_type=thresh), phi)
         recon_prev_fig = hf.display_data(
             r.eval({u:u.eval(), lamb:lamb_, thresh:thresh_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),

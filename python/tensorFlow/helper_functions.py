@@ -65,8 +65,6 @@ def normalize_image(img, divide_l2=False):
         output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
     return output
 
-
-
 """ 
 Independently normalize the columns of matrix to be bounded by bound
 
@@ -84,22 +82,13 @@ def normalize_cols(matrix, bound):
     min_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_min(matrix, reduction_indices=0), 0))
     norm_mat = tf.truediv(tf.sub(matrix, min_mat), tf.sub(max_mat,min_mat))
     bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
-    #
-    #nump_matrix = np.random.randn(12,5)
-    #nump_num_rows = nump_matrix.shape[0]
-    #nump_max_mat = np.array([np.max(nump_matrix, axis=0),]*nump_num_rows)
-    #nump_min_mat = np.array([np.min(nump_matrix, axis=0),]*nump_num_rows)
-    #nump_sub_mat = nump_matrix - nump_min_mat
-    #nump_norm_mat = nump_sub_mat / (nump_max_mat - nump_min_mat)
-    #nump_bound_norm_mat = nump_norm_mat * bound
-    #IPython.embed()
     return bound_norm_mat
 
 """ 
 Independently normalize the rows of matrix to be bounded by bound
 
 Outputs:
-    column normalized matrix
+    row normalized matrix
 
 Inputs:
     matrix : tensorflow tensor
@@ -112,12 +101,34 @@ def normalize_rows(matrix, bound):
     min_mat = tf.matmul(tf.expand_dims(tf.reduce_min(matrix, reduction_indices=1), 1), ones_mat)
     norm_mat = tf.truediv(tf.sub(matrix, min_mat), tf.sub(max_mat,min_mat))
     bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
-    #
-    #nump_matrix = np.random.randn(12,5)
-    #nump_num_cols = nump_matrix.shape[1]
-    #nump_max_mat = np.array([np.max(nump_matrix, axis=1),]*nump_num_cols).T
-    #nump_min_mat = np.array([np.min(nump_matrix, axis=1),]*nump_num_cols).T
-    #nump_sub_mat = nump_matrix - nump_min_mat
-    #nump_norm_mat = nump_sub_mat / (nump_max_mat - nump_min_mat)
-    #nump_bound_norm_mat = bound * nump_norm_mat
     return bound_norm_mat
+
+""" 
+Normalize the columns of matrix to unit norm
+For matrix W of dimensions (m,n),
+set the l2 norm of each of the n columns to 1
+||W_n||_2 = 1 for all n
+
+Outputs:
+    column normalized matrix
+
+Inputs:
+    matrix : tensorflow tensor
+"""
+def l2_normalize_cols(matrix):
+    return tf.matmul(matrix, tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(matrix, 2.0), reduction_indices=0))))
+
+""" 
+Normalize the rows of matrix to unit norm
+For matrix W of diminsions (m, n),
+set the l2 norm of each of the m rows to 1
+||W_m||_2 = 1 for all m
+
+Outputs:
+    row normalized matrix
+
+Inputs:
+    matrix : tensorflow tensor
+"""
+def l2_normalize_rows(matrix):
+    return tf.matmul(tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(matrix, 2.0), reduction_indices=1))), matrix)
