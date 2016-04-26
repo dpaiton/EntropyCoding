@@ -12,10 +12,10 @@ lamb_ = 0.10        # Threshold potential (sparseness penalty scaling)
 dt_   = 0.001       # [s] discrete time constant
 tau_  = 0.01        # [s] LCA time constant
 lr_   = 0.10        # Learning rate for weight updates (will be divided by batch_)
-batch_ = 100        # Number of images in a batch
-num_steps_ = 50     # Number of steps to run LCA
+batch_ = 60         # Number of images in a batch
+num_steps_ = 20     # Number of steps to run LCA
 num_trials_ = 5000  # Number of batches to learn weights
-display_ = 2        # How often to display status updates
+display_ = 10       # How often to display status updates
 thresh_ = 'soft'    # Thresholding type for LCA -> can be 'hard' or 'soft'
 
 tf.set_random_seed(1234567890)
@@ -138,7 +138,7 @@ for trial in range(num_trials_):
         phi_prev_fig = hf.display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
     if trial % 100 == 0:
-        saver.save(sess, './checkpoints/lca_checkpoint', global_step=trial)
+        saver.save(sess, 'checkpoints/lca_checkpoint', global_step=trial)
 
 IPython.embed()
 sess.close()
