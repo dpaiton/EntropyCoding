@@ -15,7 +15,7 @@ class schedule(object):
             "eta":1.0,
             "learning_rate":0.01,
             "num_steps":20,
-            "num_batches":30001},
+            "num_batches":10001},
         \
             {"prefix":"",
             "lambda":0.001,
@@ -23,7 +23,7 @@ class schedule(object):
             "eta":1.0,
             "learning_rate":0.01,
             "num_steps":20,
-            "num_batches":30001},
+            "num_batches":10001},
         \
             {"prefix":"",
             "lambda":0.01,
@@ -31,7 +31,7 @@ class schedule(object):
             "eta":1.0,
             "learning_rate":0.01,
             "num_steps":20,
-            "num_batches":100001},
+            "num_batches":50001},
         \
             {"prefix":"",
             "lambda":0.01,
