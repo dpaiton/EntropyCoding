@@ -71,7 +71,7 @@ with tf.name_scope("decode_weights") as scope:
     D = tf.sigmoid(alpha_1) * tf.transpose(E) + (1-tf.sigmoid(alpha_1)) * D_W
 
 # Explaining away weights
-with tf.name_scope("explaining_away_weights") as scope:
+with tf.name_scope("recurrent_weights") as scope:
     alpha_2 = tf.Variable(np.float32(1.0), trainable=True, name="alpha_2")
     S_W = tf.Variable(tf.truncated_normal([n_, n_], mean=0.0, stddev=np.sqrt(1e-4),
         dtype=tf.float32, name="S_W_init"), trainable=True, name="S_W")
@@ -91,7 +91,7 @@ z = tf.Variable(np.zeros([batch_, n_], dtype=np.float32), trainable=False, name=
 # Discretized update rule: z(t+1) = ReLU(eta * (x E - z(t) * (S-I) - b))
 with tf.name_scope("update_z") as scope:
     zT = tf.nn.relu(tf.matmul(x, E, name="encoding_transform") - \
-        tf.matmul(z, S, name="explaining_away_transform") - \
+        tf.matmul(z, S, name="explaining_away") - \
         tf.matmul(tf.constant(np.ones([batch_, 1], dtype=np.float32)), b, name="bias_replication"),
         name="zT")
     step_z = tf.group(z.assign(eta * zT))
@@ -128,12 +128,13 @@ with tf.name_scope("loss") as scope:
 # gradients of past time steps within a decaying average window.
 # General overview of learning methods can be found at this blog post:
 # http://sebastianruder.com/optimizing-gradient-descent/index.html
-decay_rate_ = 0.95
-epsilon_ = 1e-8
-#train_step = tf.train.AdadeltaOptimizer(1.0001, decay_rate_, epsilon_,
-#    name='adadelta_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
+decay_rate_ = 0.9
+epsilon_ = 1e-2
+learning_rate_ = 1.0
+#train_step = tf.train.AdadeltaOptimizer(lr, decay_rate_, epsilon_,
+#    name='grad_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
 train_step = tf.train.GradientDescentOptimizer(lr,
-    name='adadelta_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
+    name='grad_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
 
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
@@ -216,14 +217,9 @@ with tf.Session() as sess:
                 train_step.run({\
                     x:input_image,
                     y:batch[1],
+                    lr:learning_rate_,
                     lamb:lambda_,
                     gamma:gamma_})
-                #train_step.run({\
-                #    x:input_image,
-                #    y:batch[1],
-                #    lr:learning_rate_,
-                #    lamb:lambda_,
-                #    gamma:gamma_})
 
                 if train_display_ != -1 and global_batch_timer % train_display_ == 0:
                     train_accuracy = accuracy.eval({x:input_image, y:batch[1]})
