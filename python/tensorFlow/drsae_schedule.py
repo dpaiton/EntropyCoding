@@ -45,7 +45,7 @@ class schedule(object):
             "lambda":0.01,
             "gamma":0.1,
             "eta":1.0,
-            "learning_rate":0.01,
+            "learning_rate":0.001,
             "num_steps":20,
             "num_batches":50001},
         \
@@ -53,7 +53,7 @@ class schedule(object):
             "lambda":0.01,
             "gamma":0.3,
             "eta":1.0,
-            "learning_rate":0.01,
+            "learning_rate":0.001,
             "num_steps":20,
             "num_batches":50001},
         \
@@ -61,7 +61,7 @@ class schedule(object):
             "lambda":0.01,
             "gamma":0.3,
             "eta":1.0,
-            "learning_rate":0.01,
+            "learning_rate":0.001,
             "num_steps":10,
             "num_batches":50001},
         \
@@ -69,6 +69,6 @@ class schedule(object):
             "lambda":0.01,
             "gamma":0.3,
             "eta":1.0,
-            "learning_rate":0.01,
+            "learning_rate":0.0001,
             "num_steps":10,
             "num_batches":50001}]

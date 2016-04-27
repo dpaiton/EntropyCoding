@@ -19,14 +19,14 @@ m_ = 784               # Number of pixels
 n_ = 484               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
-train_display_ = 1     # How often to update training stats outputs
+train_display_ = 2     # How often to update training stats outputs
 val_display_ = -1      # How often to update validation stats outputs
 display_plots_ = True  # If True, plots will display on train_display_ intervals
 device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
-checkpoint_ = 5000    # How often to checkpoint weights. -1 for no checkpointing
-checkpoint_write_prefix_ = "v0.01.test"
+checkpoint_ = 10000   # How often to checkpoint weights. -1 for no checkpointing
+checkpoint_write_prefix_ = "v0.01"
 load_checkpoint_ = False
 checkpoint_trial_ = 10000
 #checkpoint_read_prefix_ = "unsup_encode_0.001sparse"
@@ -129,8 +129,8 @@ with tf.name_scope("loss") as scope:
 # General overview of learning methods can be found at this blog post:
 # http://sebastianruder.com/optimizing-gradient-descent/index.html
 decay_rate_ = 0.95
-epsilon_ = 1e-3
-#train_step = tf.train.AdadeltaOptimizer(lr, decay_rate_, epsilon_,
+epsilon_ = 1e-8
+#train_step = tf.train.AdadeltaOptimizer(1.0001, decay_rate_, epsilon_,
 #    name='adadelta_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
 train_step = tf.train.GradientDescentOptimizer(lr,
     name='adadelta_update').minimize(total_loss, var_list=[E, alpha_1, D_W, alpha_2, S_W, b, C])
@@ -216,9 +216,14 @@ with tf.Session() as sess:
                 train_step.run({\
                     x:input_image,
                     y:batch[1],
-                    lr:learning_rate_,
                     lamb:lambda_,
                     gamma:gamma_})
+                #train_step.run({\
+                #    x:input_image,
+                #    y:batch[1],
+                #    lr:learning_rate_,
+                #    lamb:lambda_,
+                #    gamma:gamma_})
 
                 if train_display_ != -1 and global_batch_timer % train_display_ == 0:
                     train_accuracy = accuracy.eval({x:input_image, y:batch[1]})
