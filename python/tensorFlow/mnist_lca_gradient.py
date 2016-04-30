@@ -9,7 +9,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 ## User-defined parameters
 n_    = 784        # num_pixels
 m_    = 484        # num_elements
-lamb_ = 0.1        # threshold potential
+lamb_ = 0.01       # threshold potential
 dt_   = 0.001      # [s] discrete time constant
 tau_  = 0.01       # [s] LCA time constant
 lr_   = 0.1        # Learning rate for weight updates
@@ -92,11 +92,11 @@ du = (1 - eta) * u + eta * (b(s, phi) - tf.matmul(T(u, lamb=lamb_, thresh_type=t
 ## Operation to update the state
 step_lca = tf.group(u.assign(du))
 
-## Loss functions (for analysis)
+## Loss functions
 s_ = compute_recon(T(u, lamb=lamb_, thresh_type=thresh_), phi)
 euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
-sparse_loss = tf.reduce_sum(tf.abs(T(u, lamb=lamb_, thresh_type=thresh_)))
-unsupervised_loss = euclidean_loss + lamb_ * sparse_loss
+sparse_loss = lamb_ * tf.reduce_sum(tf.abs(T(u, lamb=lamb_, thresh_type=thresh_)))
+unsupervised_loss = euclidean_loss + sparse_loss
 
 train_phi = tf.train.GradientDescentOptimizer(lr_).minimize(unsupervised_loss, var_list=[phi])
 
@@ -126,7 +126,7 @@ for trial in range(num_trials_):
     if trial % 2 == 0:
         sparsity = 100*np.count_nonzero(T(u, lamb_, thresh_).eval())/np.float32(np.size(T(u, lamb_, thresh_).eval()))
         print("Finished trial %g, max val of u is %g, num active of a was %g percent"%(trial, u.eval().max(), sparsity))
-        print("\teuclidean loss:\t%g"%(euclidean_loss.eval({s:norm_image})))
+        print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:norm_image})))
         print("\tsparse loss:\t\t%g"%(sparse_loss.eval({u:u.eval()})))
         print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:norm_image})))
         r = compute_recon(T(u, lamb_, thresh_type=thresh_), phi)
