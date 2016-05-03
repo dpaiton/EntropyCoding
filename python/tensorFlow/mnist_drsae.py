@@ -45,13 +45,11 @@ dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
 with tf.name_scope("Constants") as scope:
     x = tf.placeholder(dtype=tf.float32, shape=[batch_, m_], name="input_data")   # Image data
     y = tf.placeholder(dtype=tf.float32, shape=[batch_, l_], name="input_label")  # Image labels
-    zeros = tf.constant(np.zeros([batch_, n_], dtype=np.float32), name="zeros_matrix")
     identity_mat = tf.constant(np.identity(n_, dtype=np.float32), name="identity_matrix")
 
 with tf.name_scope("Parameters") as scope:
     lamb = tf.placeholder(dtype=tf.float32, shape=(), name="sparsity_tradeoff")    # Sparsity tradeoff
     gamma = tf.placeholder(dtype=tf.float32, shape=(), name="supervised_tradeoff") # Supervised loss tradeoff
-    eta = tf.placeholder(dtype=tf.float32, shape=(), name="z_update_step_size")    # Step size for z update
     lr = tf.placeholder(dtype=tf.float32, shape=(), name="learning_rate")          # Gradient descent learning rate
 
 ## Learned variables - to be trained with backprop
@@ -87,13 +85,13 @@ b = tf.Variable(np.zeros([1, n_], dtype=np.float32), trainable=True, name="bias"
 #TODO: Plot sorted hist of average amplitude of Zs across whole dataset
 z = tf.Variable(np.zeros([batch_, n_], dtype=np.float32), trainable=False, name="z")
 
-# Discretized update rule: z(t+1) = ReLU(eta * (x * E + z(t) * S - b))
+# Discretized update rule: z(t+1) = ReLU(x * E + z(t) * S - b)
 with tf.name_scope("update_z") as scope:
     zT = tf.nn.relu(tf.matmul(x, E, name="encoding_transform") +\
         tf.matmul(z, S, name="explaining_away") -\
         tf.matmul(tf.constant(np.ones([batch_, 1], dtype=np.float32)), b, name="bias_replication"),
         name="update_z")
-    step_z = tf.group(z.assign(eta * zT))
+    step_z = tf.group(z.assign(zT))
 
 # Normalized z for classification
 with tf.name_scope("normalize_z") as scope:
@@ -188,7 +186,6 @@ with tf.Session() as sess:
             print("-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
             lambda_ = schedule["lambda"]               # Sparsity tradeoff
             gamma_ = schedule["gamma"]                 # Supervised loss tradeoff
-            eta_ = schedule["eta"]                     # Time constant for z update
             learning_rate_ = schedule["learning_rate"] # Learning rate for SGD
             num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
             num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
@@ -208,9 +205,9 @@ with tf.Session() as sess:
                 C.assign(tf.nn.l2_normalize(C, dim=0, epsilon=eps, name="col_l2_norm"))
 
                 ## First find image code, z
-                z.assign(zeros)
+                z.assign(tf.constant(np.zeros([batch_, n_], dtype=np.float32), name="zeros_matrix"))
                 for t in range(int(num_steps_)):
-                    step_z.run({x:input_image, eta:eta_})
+                    step_z.run({x:input_image})
 
                 ## Use converged z to compute loss & update weights
                 train_steps[sched_no].run({\
