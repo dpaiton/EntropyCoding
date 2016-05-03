@@ -19,7 +19,7 @@ m_ = 784               # Number of pixels
 n_ = 484               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
-train_display_ = 5     # How often to update training stats outputs
+train_display_ = 1     # How often to update training stats outputs
 val_display_ = -1      # How often to update validation stats outputs
 display_plots_ = True  # If True, plots will display on train_display_ intervals
 device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
@@ -33,6 +33,8 @@ load_checkpoint_ = False
 global_batch_index_ = 20000
 checkpoint_sched_no_ = 1
 checkpoint_read_prefix_ = "v0.01"
+
+eps = 1e-12
 
 tf.set_random_seed(1234567890)
 
@@ -51,15 +53,13 @@ with tf.name_scope("Parameters") as scope:
     gamma = tf.placeholder(dtype=tf.float32, shape=(), name="supervised_tradeoff") # Supervised loss tradeoff
     eta = tf.placeholder(dtype=tf.float32, shape=(), name="z_update_step_size")    # Step size for z update
     lr = tf.placeholder(dtype=tf.float32, shape=(), name="learning_rate")          # Gradient descent learning rate
-    batch = tf.placeholder(dtype=tf.float32, shape=(), name="image_batch_size")    # Number of images in input batch
-    num_steps = tf.placeholder(dtype=tf.float32, shape=(), name="num_steps_z")     # Number of recurrent z iterations
-    num_batches = tf.placeholder(dtype=tf.float32, shape=(), name="num_batches")   # Total number of batches
 
 ## Learned variables - to be trained with backprop
 # Encoding weights
 with tf.name_scope("encode_weights") as scope:
-    E = tf.Variable(hf.l2_normalize_cols(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0),
-        dtype=tf.float32, name="E_init")), trainable=True, name="encode_weights")
+    E = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0),
+        dtype=tf.float32, name="E_init"), dim=0, epsilon=eps, name="col_l2_norm"),
+        trainable=True, name="encode_weights")
 
 # Decoding weights
 with tf.name_scope("decode_weights") as scope:
@@ -84,6 +84,7 @@ with tf.name_scope("classification_weights") as scope:
 b = tf.Variable(np.zeros([1, n_], dtype=np.float32), trainable=True, name="bias")
 
 ## Dynamic variables - not to be trained with backrpop
+#TODO: Plot sorted hist of average amplitude of Zs across whole dataset
 z = tf.Variable(np.zeros([batch_, n_], dtype=np.float32), trainable=False, name="z")
 
 # Discretized update rule: z(t+1) = ReLU(eta * (x * E + z(t) * S - b))
@@ -96,13 +97,21 @@ with tf.name_scope("update_z") as scope:
 
 # Normalized z for classification
 with tf.name_scope("normalize_z") as scope:
-    norm_z = tf.truediv(zT, tf.sqrt(tf.reduce_sum(tf.pow(zT, 2.0))) + 1e-10)
+    # TODO: Normalize per image, not across batch
+    # TODO: try with & without normalization for DrSAE++
+    norm_z = tf.truediv(zT, tf.nn.l2_normalize(zT, dim=0, epsilon=eps, name="col_l2_norm"))
 
 ## Network outputs
 with tf.name_scope("output") as scope:
     with tf.name_scope("label_estimate"):
+        # TODO: Look at values coming out of y_, what is the range?
+        # Control the norm of the cols of C to get y_ to be in a desired range.
+        # should l2 normalize C and then rescale. as scalar on C increases to inf, you're
+        # pushing it to winner take all
+        ## Plot softmax output for each trial
         y_ = tf.nn.softmax(tf.matmul(norm_z, C, name="classify"), name="softmax") # label output
     with tf.name_scope("image_estimate"):
+        ## TODO: plot average SNRdb of recons in a whole set
         x_ = tf.matmul(zT, D, name="reconstruction")  # reconstruction
 
 ## Loss fucntions
@@ -157,7 +166,7 @@ if checkpoint_ != -1:
         os.makedirs("checkpoints")
 
 with tf.Session() as sess:
-    with tf.device(device_): 
+    with tf.device(device_):
         sess.run(init_op)
 
         if load_checkpoint_:
@@ -194,10 +203,9 @@ with tf.Session() as sess:
                 input_image = hf.normalize_image(batch[0], divide_l2=False)
 
                 ## Normalize weight matrices
-                E.assign(hf.l2_normalize_cols(E))
-                #D_W.assign(hf.l2_normalize_rows(D_W))
-                #S_W.assign(hf.normalize_tensor(S_W, 1.0))
-                C.assign(hf.normalize_cols(C, 1.0))
+                E.assign(tf.nn.l2_normalize(E, dim=0, epsilon=eps, name="col_l2_norm"))
+                D_W.assign(tf.nn.l2_normalize(D, dim=1, epsilon=eps, name="row_l2_norm"))
+                C.assign(tf.nn.l2_normalize(C, dim=0, epsilon=eps, name="col_l2_norm"))
 
                 ## First find image code, z
                 z.assign(zeros)

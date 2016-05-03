@@ -78,94 +78,97 @@ Normalize input image to have mean 0 and std 1
 Outputs:
     output : normalized image
 Inputs:
-    img : numpy ndarray
+    img : numpy ndarray - assumes 2D array with first dimension indicating batch dimension.
+          normalization is done per image, not across the batch
     divide_l2 : (default False), set to True if you wish to divide the normalized image by its l2 norm
 """
 def normalize_image(img, divide_l2=False):
     if divide_l2:
-        img_l2 = np.sqrt(np.sum(np.power(img, 2.0)))
+        img_l2 = np.vstack([np.sqrt(np.sum(np.power(img[idx,:], 2.0))) for idx in range(img.shape[0])])
         output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])]) / img_l2
     else:
         output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
     return output
 
-""" 
-Independently normalize the columns of tensor to be bounded by bound
-
-Outputs:
-    bound_norm_mat : column normalized tensor
-
-Inputs:
-    tensor : 2-D tensorflow tensor
-    bound  : flaot32
-"""
-def normalize_cols(tensor, bound):
-    num_rows = int(tensor.get_shape()[0])
-    ones_mat = tf.constant(np.ones([num_rows, 1], dtype=np.float32))
-    max_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_max(tensor, reduction_indices=0), 0))
-    min_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_min(tensor, reduction_indices=0), 0))
-    norm_mat = tf.truediv(tf.sub(tensor, min_mat), tf.sub(max_mat, min_mat))
-    bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
-    return bound_norm_mat
-
-""" 
-Independently normalize the rows of tensor to be bounded by bound
-
-Outputs:
-    bound_norm_mat : row normalized tensor
-
-Inputs:
-    tensor : 2-D tensorflow tensor
-    bound  : flaot32
-"""
-def normalize_rows(tensor, bound):
-    num_cols = int(tensor.get_shape()[1])
-    ones_mat = tf.constant(np.ones([1, num_cols], dtype=np.float32))
-    max_mat = tf.matmul(tf.expand_dims(tf.reduce_max(tensor, reduction_indices=1), 1), ones_mat)
-    min_mat = tf.matmul(tf.expand_dims(tf.reduce_min(tensor, reduction_indices=1), 1), ones_mat)
-    norm_mat = tf.truediv(tf.sub(tensor, min_mat), tf.sub(max_mat, min_mat))
-    bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
-    return bound_norm_mat
-
-""" 
-Normalize the columns of tensor to unit norm
-For tensor W of dimensions (m,n),
-set the l2 norm of each of the n columns to 1
-||W_n||_2 = 1 for all n
-
-Outputs:
-    column normalized tensor
-
-Inputs:
-    tensor : 2-D tensorflow tensor
-"""
-def l2_normalize_cols(tensor):
-    return tf.matmul(tensor, tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(tensor, 2.0), reduction_indices=0))))
-
-""" 
-Normalize the rows of tensor to unit norm
-For tensor W of diminsions (m, n),
-set the l2 norm of each of the m rows to 1
-||W_m||_2 = 1 for all m
-
-Outputs:
-    row normalized tensor
-
-Inputs:
-    tensor : 2-D tensorflow tensor
-"""
-def l2_normalize_rows(tensor):
-    return tf.matmul(tf.diag(1.0/tf.sqrt(tf.reduce_sum(tf.pow(tensor, 2.0), reduction_indices=1))), tensor)
-
-""" 
-Normalize input tensor to be between 0 and bound
-Outputs:
-    normalized tensor
-Inputs:
-    tensor : tensorflow tensor
-"""
-def normalize_tensor(tensor, bound):
-    tensor_max = tf.reduce_max(tensor)
-    tensor_min = tf.reduce_min(tensor)
-    norm_tensor = tf.truediv(tf.sub(tensor, tensor_min), tf.sub(tensor_max, tensor_min))
-    return tf.mul(norm_tensor, tf.constant(np.float32(bound)))
+#""" 
+#Independently normalize the columns of tensor to be bounded by bound
+#
+#Outputs:
+#    bound_norm_mat : column normalized tensor
+#
+#Inputs:
+#    tensor : 2-D tensorflow tensor
+#    bound  : flaot32
+#"""
+#def normalize_cols(tensor, bound):
+#    num_rows = int(tensor.get_shape()[0])
+#    ones_mat = tf.constant(np.ones([num_rows, 1], dtype=np.float32))
+#    max_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_max(tensor, reduction_indices=0), 0))
+#    min_mat = tf.matmul(ones_mat, tf.expand_dims(tf.reduce_min(tensor, reduction_indices=0), 0))
+#    norm_mat = tf.truediv(tf.sub(tensor, min_mat), tf.sub(max_mat, min_mat))
+#    bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
+#    return bound_norm_mat
+#
+#""" 
+#Independently normalize the rows of tensor to be bounded by bound
+#
+#Outputs:
+#    bound_norm_mat : row normalized tensor
+#
+#Inputs:
+#    tensor : 2-D tensorflow tensor
+#    bound  : flaot32
+#"""
+#def normalize_rows(tensor, bound):
+#    num_cols = int(tensor.get_shape()[1])
+#    ones_mat = tf.constant(np.ones([1, num_cols], dtype=np.float32))
+#    max_mat = tf.matmul(tf.expand_dims(tf.reduce_max(tensor, reduction_indices=1), 1), ones_mat)
+#    min_mat = tf.matmul(tf.expand_dims(tf.reduce_min(tensor, reduction_indices=1), 1), ones_mat)
+#    norm_mat = tf.truediv(tf.sub(tensor, min_mat), tf.sub(max_mat, min_mat))
+#    bound_norm_mat = tf.mul(norm_mat, tf.constant(np.float32(bound)))
+#    return bound_norm_mat
+#
+#""" 
+#Normalize the columns of tensor to unit norm
+#For tensor W of dimensions (m,n),
+#set the l2 norm of each of the n columns to bound
+#||W_n||_2 = bound for all n
+#
+#Outputs:
+#    column normalized tensor
+#
+#Inputs:
+#    tensor : 2-D tensorflow tensor
+#    bound  : (int) scalar for normalization procedure
+#"""
+#def l2_normalize_cols(tensor, bound=1.0):
+#    return tf.matmul(tensor, tf.diag(bound / tf.sqrt(tf.reduce_sum(tf.pow(tensor, 2.0), reduction_indices=0))))
+#
+#""" 
+#Normalize the rows of tensor to unit norm
+#For tensor W of diminsions (m, n),
+#set the l2 norm of each of the m rows to bound
+#||W_m||_2 = bound for all m
+#
+#Outputs:
+#    row normalized tensor
+#
+#Inputs:
+#    tensor : 2-D tensorflow tensor
+#    bound  : (int) scalar for normalization procedure
+#"""
+#def l2_normalize_rows(tensor, bound=1.0):
+#    return tf.matmul(tf.diag(bound / tf.sqrt(tf.reduce_sum(tf.pow(tensor, 2.0), reduction_indices=1))), tensor)
+#
+#""" 
+#Normalize input tensor to be between 0 and bound
+#Outputs:
+#    normalized tensor
+#Inputs:
+#    tensor : tensorflow tensor
+#"""
+#def normalize_tensor(tensor, bound):
+#    tensor_max = tf.reduce_max(tensor)
+#    tensor_min = tf.reduce_min(tensor)
+#    norm_tensor = tf.truediv(tf.sub(tensor, tensor_min), tf.sub(tensor_max, tensor_min))
+#    return tf.mul(norm_tensor, tf.constant(np.float32(bound)))
