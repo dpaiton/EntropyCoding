@@ -13,7 +13,7 @@ dt_   = 0.001       # [s] discrete time constant
 tau_  = 0.01        # [s] LCA time constant
 lr_   = 0.10        # Learning rate for weight updates (will be divided by batch_)
 batch_ = 60         # Number of images in a batch
-num_steps_ = 20     # Number of steps to run LCA
+num_steps_ = 50     # Number of steps to run LCA
 num_trials_ = 5000  # Number of batches to learn weights
 display_ = 10       # How often to display status updates
 thresh_ = 'soft'    # Thresholding type for LCA -> can be 'hard' or 'soft'
@@ -23,10 +23,10 @@ tf.set_random_seed(1234567890)
 ## Helper functions
 """
 Driving input for LCA model
-    b_m = <s(t), phi_m>
+    b_m = <(phi_m)^T, s(t)>
 """
-def b(s, phi):
-    return tf.matmul(s, tf.transpose(phi))
+def b(phi, s):
+    return tf.matmul(tf.transpose(phi), s)
 
 """
 Lateral inhibition
@@ -34,7 +34,7 @@ Lateral inhibition
 where I is the identity matrix and prevents a neuron from inhibiting itself
 """
 def G(phi):
-    return tf.matmul(phi, tf.transpose(phi)) - tf.constant(np.identity(int(phi.get_shape()[0])), dtype=tf.float32)
+    return tf.matmul(tf.transpose(phi), phi) - tf.constant(np.identity(int(phi.get_shape()[1])), dtype=tf.float32, name="identity_matrix")
 
 """
 Soft threshold function
@@ -58,10 +58,10 @@ def T(u, lamb, thresh_type='soft'):
 
 """
 Reconstruction of the input is a weighted sum of basis vectors
-recon = <a, phi>
+recon = <phi, a>
 """
-def compute_recon(a, phi):
-    return tf.matmul(a, phi)
+def compute_recon(phi, a):
+    return tf.matmul(phi, a)
 
 ## Interactive session allows us to enter IPython for analysis
 sess = tf.InteractiveSession()
@@ -70,13 +70,12 @@ sess = tf.InteractiveSession()
 dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
 
 ## Setup constants & placeholders
-s = tf.placeholder(tf.float32, shape=[None, n_]) # Placeholder for data
-r = tf.placeholder(tf.float32, shape=[None, n_]) # Placeholder for reconstruction
+s = tf.placeholder(tf.float32, shape=[n_, None]) # Placeholder for data
 eta = tf.placeholder(tf.float32, shape=())       # Placeholder for LCA update rate
 weight_lr = tf.placeholder(tf.float32, shape=()) # Placeholder for Phi update rule
 
 ## Initialize membrane potential
-u = tf.Variable(np.zeros([batch_, m_], dtype=np.float32))
+u = tf.Variable(np.zeros([m_, batch_], dtype=np.float32), name="membrane_potential")
 
 ## Initialize dictionary
 # Truncated normal distribution is a standard normal distribution with specified mean and standard
@@ -84,22 +83,27 @@ u = tf.Variable(np.zeros([batch_, m_], dtype=np.float32))
 # are dropped and re-picked.
 phi_init_mean = 0.0
 phi_init_var = 1.0
-phi = tf.Variable(hf.l2_normalize_rows(tf.truncated_normal([m_, n_], mean=phi_init_mean,
-    stddev=np.sqrt(phi_init_var), dtype=tf.float32)))
+phi = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([n_, m_], mean=phi_init_mean,
+    stddev=np.sqrt(phi_init_var), dtype=tf.float32, name="phi_init"), dim=1, name="row_l2_norm"), name="phi")
+
+## Reconstruction variable
+s_ = compute_recon(phi, T(u, lamb_, thresh_type=thresh_))
 
 ## Discritized membrane update rule
-du = (1-eta) * u + eta * (b(s, phi) - tf.matmul(T(u, lamb_, thresh_type=thresh_), G(phi)))
+du = (1-eta) * u + eta * tf.sub(b(phi, s), tf.matmul(G(phi), T(u, lamb_, thresh_type=thresh_)))
 
 ## Discritized weight update rule
-dphi = weight_lr * tf.matmul(tf.transpose(T(u, lamb_, thresh_type=thresh_)), 
-    s - compute_recon(T(u, lamb_, thresh_type=thresh_), phi))
+dphi = weight_lr * tf.matmul(tf.sub(s, s_), tf.transpose(T(u, lamb_, thresh_type=thresh_)))
 
 ## Operation to update the state
 step_lca = tf.group(u.assign(du))
 step_phi = tf.group(phi.assign_add(dphi))
 
+## Weight normalization
+normalize_phi = tf.group(phi.assign(tf.nn.l2_normalize(phi, dim=1, epsilon=1e-12, name="row_l2_norm")),
+        name="do_normalization")
+
 ## Loss functions (for analysis)
-s_ = compute_recon(T(u, lamb_, thresh_type=thresh_), phi)
 euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
 sparse_loss = lamb_ * tf.reduce_sum(tf.abs(T(u, lamb_, thresh_type=thresh_)))
 unsupervised_loss = euclidean_loss + sparse_loss
@@ -113,7 +117,7 @@ recon_prev_fig = None
 
 ## Select images
 for trial in range(num_trials_):
-    norm_input = hf.normalize_image(dataset.train.next_batch(batch_)[0], divide_l2=False) # don't need labels
+    norm_input = hf.normalize_image(dataset.train.next_batch(batch_)[0]).T # don't need labels
 
     ## Converge network
     for t in range(num_steps_):
@@ -123,7 +127,7 @@ for trial in range(num_trials_):
     step_phi.run({s:norm_input, weight_lr:float(lr_)/float(batch_)})
 
     ## Renormalize weights after update
-    phi = hf.l2_normalize_rows(phi)
+    normalize_phi.run()
 
     if trial % display_ == 0:
         sparsity = 100*np.count_nonzero(T(u, lamb_, thresh_).eval())/np.float32(np.size(T(u, lamb_, thresh_).eval()))
@@ -131,11 +135,10 @@ for trial in range(num_trials_):
         print("\teuclidean loss:\t%g"%(euclidean_loss.eval({s:norm_input, u:u.eval(), phi:phi.eval()})))
         print("\tsparse loss:\t%g"%(sparse_loss.eval({u:u.eval()})))
         print("\ttotal loss:\t%g"%(unsupervised_loss.eval({s:norm_input, u:u.eval(), phi:phi.eval()})))
-        r = compute_recon(T(u, lamb_, thresh_type=thresh_), phi)
-        recon_prev_fig = hf.display_data(
-            r.eval({u:u.eval()}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+        recon_prev_fig = hf.display_data_tiled(
+            tf.transpose(s_).eval({u:u.eval()}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Reconstructions for time step '+str(t)+' in trial '+str(trial), prev_fig=recon_prev_fig)
-        phi_prev_fig = hf.display_data(phi.eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+        phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
     if trial % 100 == 0:
         saver.save(sess, 'checkpoints/lca_checkpoint', global_step=trial)
