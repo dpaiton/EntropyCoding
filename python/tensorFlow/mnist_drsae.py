@@ -27,12 +27,13 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 ## Checkpointing
 # Writing
 checkpoint_ = 5000    # How often to checkpoint weights. -1 for no checkpointing
-checkpoint_write_prefix_ = "v0.02"
+#TODO: setup versioning in graph_def
+checkpoint_write_prefix_ = "v0.01"
 # Reading
 load_checkpoint_ = False
 global_batch_index_ = 20000
 checkpoint_sched_no_ = 1
-checkpoint_read_prefix_ = "v0.01"
+checkpoint_read_prefix_ = "v0.02"
 
 eps = 1e-12
 
@@ -45,7 +46,6 @@ dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
 with tf.name_scope("Constants") as scope:
     x = tf.placeholder(dtype=tf.float32, shape=[m_, batch_], name="input_data")   # Image data
     y = tf.placeholder(dtype=tf.float32, shape=[l_, batch_], name="input_label")  # Image labels
-    identity_mat = tf.constant(np.identity(n_, dtype=np.float32), name="identity_matrix")
 
 with tf.name_scope("Parameters") as scope:
     lamb = tf.placeholder(dtype=tf.float32, shape=(), name="sparsity_tradeoff")    # Sparsity tradeoff
@@ -89,7 +89,10 @@ with tf.name_scope("update_z") as scope:
         tf.matmul(S, z, name="explaining_away") -\
         tf.matmul(b, tf.constant(np.ones([1, batch_], dtype=np.float32)), name="bias_replication"),
         name="update_z")
-    step_z = tf.group(z.assign(zT))
+    step_z = tf.group(z.assign(zT), name="do_update_z")
+
+with tf.name_scope("reset_z") as scope:
+    reset_z = tf.group(z.assign(tf.constant(np.zeros([n_, batch_], dtype=np.float32), name="zeros_matrix")), name="do_reset_z")
 
 ## Network outputs
 with tf.name_scope("output") as scope:
@@ -130,8 +133,13 @@ epsilon_ = 1e-7
 train_steps = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
     name="adam_update").minimize(total_loss,
     var_list=[E, D, S, b, C]) for sch in range(len(schedules))]
-#train_steps = [tf.train.GradientDescentOptimizer(lr, name="grad_desc_update").minimize(total_loss,
-#    var_list=[E, D, S, b, C]) for sch in range(len(schedules))]
+
+## Normalizing operations
+with tf.name_scope("normalize_weights") as scope:
+    norm_E = E.assign(tf.nn.l2_normalize(E, dim=1, epsilon=eps, name="row_l2_norm"))
+    norm_D = D.assign(tf.nn.l2_normalize(D, dim=0, epsilon=eps, name="col_l2_norm"))
+    norm_C = C.assign(tf.nn.l2_normalize(C, dim=1, epsilon=eps, name="row_l2_norm"))
+    normalize_weights = tf.group(norm_E, norm_D, norm_C, name="do_weight_normalization")
 
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
@@ -153,7 +161,8 @@ recon_prev_fig = None
 init_op = tf.initialize_all_variables()
 
 if checkpoint_ != -1:
-    saver = tf.train.Saver()
+    save_list = {"E":E, "D":D, "S":S, "b":b, "C":C}
+    saver = tf.train.Saver(save_list)
     if not os.path.exists("checkpoints"):
         os.makedirs("checkpoints")
 
@@ -195,12 +204,10 @@ with tf.Session() as sess:
                 input_label = batch[1].T
 
                 ## Normalize weight matrices
-                E.assign(tf.nn.l2_normalize(E, dim=1, epsilon=eps, name="row_l2_norm"))
-                D.assign(tf.nn.l2_normalize(D, dim=0, epsilon=eps, name="col_l2_norm"))
-                C.assign(tf.nn.l2_normalize(C, dim=1, epsilon=eps, name="row_l2_norm"))
+                normalize_weights.run()
 
                 ## First find image code, z
-                z.assign(tf.constant(np.zeros([n_, batch_], dtype=np.float32), name="zeros_matrix"))
+                reset_z.run()
                 for t in range(int(num_steps_)):
                     step_z.run({x:input_image})
 
