@@ -9,43 +9,29 @@ class schedule(object):
     def __init__(self):
         self.blocks = [ \
             {"prefix":"",
+            "lambda":0.001,
+            "gamma":0.0,
+            "learning_rate":0.001,
+            "num_steps":20,
+            "num_batches":1001},
+        \
+            {"prefix":"",
             "lambda":0.01,
             "gamma":0.0,
             "learning_rate":0.001,
             "num_steps":20,
-            "num_batches":5001},
+            "num_batches":20001},
         \
             {"prefix":"",
-            "lambda":0.1,
-            "gamma":0.0,
-            "learning_rate":0.001,
-            "num_steps":20,
-            "num_batches":10001},
-        \
-            {"prefix":"",
-            "lambda":0.01,
+            "lambda":0.001,
             "gamma":0.01,
             "learning_rate":0.001,
             "num_steps":20,
             "num_batches":10001},
         \
             {"prefix":"",
-            "lambda":0.01,
+            "lambda":0.001,
             "gamma":0.1,
             "learning_rate":0.001,
             "num_steps":20,
-            "num_batches":10001},
-        \
-            {"prefix":"",
-            "lambda":0.01,
-            "gamma":0.3,
-            "learning_rate":0.001,
-            "num_steps":10,
-            "num_batches":10001},
-        \
-            {"prefix":"",
-            "lambda":0.01,
-            "gamma":0.3,
-            "learning_rate":0.001,
-            "num_steps":10,
             "num_batches":10001}]

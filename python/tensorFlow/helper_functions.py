@@ -80,15 +80,9 @@ Outputs:
 Inputs:
     img : numpy ndarray - assumes 2D array with first dimension indicating batch dimension.
           normalization is done per image, not across the batch
-    divide_l2 : (default False), set to True if you wish to divide the normalized image by its l2 norm
 """
-def normalize_image(img, divide_l2=False):
-    if divide_l2:
-        img_l2 = np.vstack([np.sqrt(np.sum(np.power(img[idx,:], 2.0))) for idx in range(img.shape[0])])
-        output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])]) / img_l2
-    else:
-        output = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
-    return output
+def normalize_image(img):
+    return np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
 
 #""" 
 #Independently normalize the columns of tensor to be bounded by bound
