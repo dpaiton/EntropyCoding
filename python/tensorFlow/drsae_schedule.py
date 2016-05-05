@@ -1,7 +1,7 @@
 """
 lambda         # Sparsity tradeoff
 gamma          # Supervised loss tradeoff
-learning_rate  # Learning rate for SGD
+learning_rate  # Learning rate for optimizer
 num_steps      # Number of time steps for enoding
 num_batches    # Number of batches to learn weights
 """

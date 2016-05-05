@@ -21,7 +21,7 @@ l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
 train_display_ = 20    # How often to update training stats outputs
 val_display_ = -1      # How often to update validation stats outputs
-display_plots_ = False # If True, plots will display on train_display_ intervals
+display_plots_ = True  # If True, plots will display on train_display_ intervals
 device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
@@ -72,9 +72,8 @@ with tf.name_scope("recurrent_weights") as scope:
 
 # Classification matrix
 with tf.name_scope("classification_weights") as scope:
-    C = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
-        dtype=tf.float32, name="C_init"), dim=1, epsilon=eps, name="row_l2_norm"),
-        trainable=True, name="C")
+    C = tf.Variable(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
+        dtype=tf.float32, name="C_init"), trainable=True, name="C")
 
 # Bias
 b = tf.Variable(np.zeros([n_, 1], dtype=np.float32), trainable=True, name="bias")
@@ -243,7 +242,7 @@ with tf.Session() as sess:
                     print("\tCompleted batch number %g out of %g in current schedule"%(batch_idx, num_batches_))
                     print("\tpercent active:\t\t%g"%(perc_active))
                     print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({x:input_image})))
-                    print("\tsparse loss:\t\t%g"%(sparse_loss.eval({x:input_image,lamb:lambda_})))
+                    print("\tsparse loss:\t\t%g"%(sparse_loss.eval({x:input_image, lamb:lambda_})))
                     print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({x:input_image, lamb:lambda_})))
                     print("\tcross-entropy loss:\t%g"%(cross_entropy_loss.eval({x:input_image, y:input_label, gamma:gamma_})))
                     print("\tsupervised loss:\t%g"%(supervised_loss.eval({x:input_image, y:input_label, gamma:gamma_})))

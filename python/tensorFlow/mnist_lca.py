@@ -11,7 +11,7 @@ m_    = 484         # Num_elements
 lamb_ = 0.10        # Threshold potential (sparseness penalty scaling)
 dt_   = 0.001       # [s] discrete time constant
 tau_  = 0.01        # [s] LCA time constant
-lr_   = 0.10        # Learning rate for weight updates (will be divided by batch_)
+lr_   = 0.1         # Learning rate for weight updates (will be divided by batch_)
 batch_ = 60         # Number of images in a batch
 num_steps_ = 50     # Number of steps to run LCA
 num_trials_ = 5000  # Number of batches to learn weights
@@ -34,7 +34,8 @@ Lateral inhibition
 where I is the identity matrix and prevents a neuron from inhibiting itself
 """
 def G(phi):
-    return tf.matmul(tf.transpose(phi), phi) - tf.constant(np.identity(int(phi.get_shape()[1])), dtype=tf.float32, name="identity_matrix")
+    return tf.matmul(tf.transpose(phi), phi) - \
+            tf.constant(np.identity(int(phi.get_shape()[1])), dtype=tf.float32, name="identity_matrix")
 
 """
 Soft threshold function
@@ -61,7 +62,7 @@ Reconstruction of the input is a weighted sum of basis vectors
 recon = <phi, a>
 """
 def compute_recon(phi, a):
-    return tf.matmul(phi, a)
+    return tf.matmul(phi, a, name="reconstruction")
 
 ## Interactive session allows us to enter IPython for analysis
 sess = tf.InteractiveSession()
