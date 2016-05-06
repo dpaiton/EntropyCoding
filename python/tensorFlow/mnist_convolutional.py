@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
+import helper_functions as hf
 
 
 def weight_variable(shape):
@@ -63,12 +64,14 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
 sess.run(tf.initialize_all_variables())
 
+w1_prev_fig = None
 for i in range(20000):
     batch = mnist.train.next_batch(50)
-    if i%100 == 0:
+    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+    if i%10 == 0:
         train_accuracy = accuracy.eval(feed_dict={x: batch[0], y_: batch[1], keep_prob: 1.0})
         print("step %d, training accuracy %g"%(i, train_accuracy))
-    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+        w1_prev_fig = hf.display_data_tiled(tf.transpose(W_conv1, [3, 0, 1, 2]).eval(), title="W1_conv", prev_fig=w1_prev_fig)
 
 # keep_prob can be set to 1.0 on test set to stop dropout from happening
-print("Test accuracy = %g"%accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})) 
+print("Test accuracy = %g"%accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
