@@ -1,9 +1,9 @@
 import os
-import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
 import helper_functions as hf
 import IPython
+
+import tensorflow as tf # always import tensorflow after other imports
 from tensorflow.examples.tutorials.mnist import input_data
 import lca_schedule as scheduler
 
@@ -27,6 +27,8 @@ epsilon_ = 1e-7
 # Display & Checkpointing
 checkpoint_ = 1000
 train_display_ = 2  # How often to display status updates
+val_display_ = 100
+display_plots_ = False
 device_ = "/cpu:0"
 
 tf.set_random_seed(1234567890)
@@ -94,10 +96,10 @@ with tf.name_scope("parameters") as scope:
     lr = tf.placeholder(tf.float32, shape=(), name="weight_learning_rate")   # Placeholder for Phi update rule
 
 ## Initialize membrane potential
-with tf.name_scope("dynamic_variables"):
+with tf.name_scope("dynamic_variables") as scope:
     u = tf.Variable(np.zeros([m_, batch_], dtype=np.float32), trainable=False, name="membrane_potential")
 
-with tf.name_scope("weights"):
+with tf.name_scope("weights") as scope:
     ## Initialize dictionary
     # Truncated normal distribution is a standard normal distribution with specified mean and standard
     # deviation, except that values whose magnitude is more than 2 standard deviations from the mean
@@ -115,21 +117,21 @@ with tf.name_scope("normalize_weights") as scope:
     norm_C = C.assign(tf.nn.l2_normalize(C, dim=1, epsilon=eps, name="row_l2_norm"))
     normalize_weights = tf.group(norm_phi, norm_C, name="do_normalization")
 
-with tf.name_scope("output"):
+with tf.name_scope("output") as scope:
     with tf.name_scope("image_estimate"):
         s_ = compute_recon(phi, T(u, lamb, thresh_type=thresh_))
     with tf.name_scope("label_estimate"):
         y_ = tf.nn.softmax(tf.matmul(C, tf.nn.l2_normalize(u, dim=0, epsilon=1e-12,
             name="col_l2_norm"), name="classify"), name="softmax")
 
-with tf.name_scope("update_u"):
+with tf.name_scope("update_u") as scope:
     ## Discritized membrane update rule
     du = (1 - eta) * u + eta * tf.sub(b(phi, s), tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)))
 
     ## Operation to update the state
     step_lca = tf.group(u.assign(du), name="do_update_u")
 
-with tf.name_scope("loss"):
+with tf.name_scope("loss") as scope:
     with tf.name_scope("unsupervised"):
         euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
         sparse_loss = lamb * tf.reduce_sum(tf.abs(T(u, lamb, thresh_type=thresh_)))
@@ -140,17 +142,24 @@ with tf.name_scope("loss"):
         supervised_loss = cross_entropy_loss
     total_loss = unsupervised_loss + supervised_loss
 
+with tf.name_scope("accuracy_calculation") as scope:
+    with tf.name_scope("prediction_bools"):
+        correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(y, 1))
+    with tf.name_scope("accuracy"):
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
 ## Load in scheduler
 schedules = scheduler.schedule().blocks
 
 ## Weight update method
+var_lists = [[phi] if sch["prefix"] == "unsupervised" else [C] if sch["prefix"] == "supervised" else [phi, C] for sch in schedules]
 train_weights = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
-    name="adam_optimizer").minimize(total_loss,
-    var_list=[phi], name="adam_minimzer") for sch in range(len(schedules))]
+    name="adam_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
+    name="adam_minimzer") for sch_no in range(len(schedules))]
 
 ## Checkpointing & graph output
 if checkpoint_ != -1:
-    var_list={"phi":phi}
+    var_list={"phi":phi, "C":C}
     saver = tf.train.Saver(var_list)
     if not os.path.exists("checkpoints"):
         os.makedirs("checkpoints")
@@ -158,6 +167,7 @@ if checkpoint_ != -1:
 ## Initialization
 init_op = tf.initialize_all_variables()
 
+c_prev_fig = None
 phi_prev_fig = None
 recon_prev_fig = None
 with tf.Session() as sess:
@@ -200,19 +210,33 @@ with tf.Session() as sess:
                     gamma:gamma_})
 
                 if trial % train_display_ == 0:
-                    sparsity = 100 * np.count_nonzero(T(u, lamb, thresh_).eval({lamb:lambda_})) / m_
-                    print("Global batch number is %g"%global_batch_timer)
-                    print("Finished trial %g, max val of u is %g, num active of a was %g percent"%(trial, u.eval().max(), sparsity))
+                    sparsity = 100 * np.count_nonzero(T(u, lamb, thresh_).eval({lamb:lambda_})) / (m_ * batch_)
+                    train_accuracy = accuracy.eval({s:input_image, y:input_label})
+                    print("\nGlobal batch number is %g"%global_batch_timer)
+                    print("Finished trial %g out of %g, max val of u is %g, num active of a was %g percent"%(trial, 
+                        num_batches_, u.eval().max(), sparsity))
                     print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
                     print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
                     print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
-                    recon_prev_fig = hf.display_data_tiled(
-                        tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-                        title="Reconstructions for time step "+str(t)+" in trial "+str(trial), prev_fig=recon_prev_fig)
-                    phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-                        title="Dictionary for trial number "+str(trial), prev_fig=phi_prev_fig)
+                    print("\tsupervised loss:\t%g"%(supervised_loss.eval({s:input_image,
+                        y:input_label, gamma:gamma_, lamb:lambda_})))
+                    print("\ttrain accuracy:\t\t%g"%(train_accuracy))
+                    if display_plots_: #TODO: plot weight gradients
+                        c_prev_fig = hf.display_data_tiled(C.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+                            title="Classification matrix at trial number "+str(global_batch_timer), prev_fig=c_prev_fig)
+                        recon_prev_fig = hf.display_data_tiled(
+                            tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+                            title="Reconstructions in trial "+str(global_batch_timer), prev_fig=recon_prev_fig)
+                        phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+                            title="Dictionary for trial "+str(global_batch_timer), prev_fig=phi_prev_fig)
+                    if val_display_ != -1 and global_batch_timer % val_display_ == 0:
+                        val_batch = dataset.validation.next_batch(5000) # Full validation set
+                        val_image = hf.normalize_image(val_batch[0]).T
+                        val_label = val_batch[1].T
+                        val_accuracy = accuracy.eval({s:val_image, y:val_label})
+                        print("\t---validation accuracy: %g"%(val_accuracy))
                 if trial % checkpoint_ == 0:
-                    saver.save(sess, "./checkpoints/lca_checkpoint", global_step=trial)
+                    saver.save(sess, "./checkpoints/lca_checkpoint", global_step=global_batch_timer)
 
                 global_batch_timer += 1
 
