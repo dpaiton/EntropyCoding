@@ -143,7 +143,7 @@ with tf.name_scope("normalize_weights") as scope:
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
     with tf.name_scope("prediction_bools"):
-        correct_prediction = tf.equal(tf.argmax(y_,1), tf.argmax(y,1))
+        correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(y, 1))
     with tf.name_scope("accuracy"):
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
@@ -253,7 +253,7 @@ with tf.Session() as sess:
                     val_image = hf.normalize_image(val_batch[0]).T
                     val_label = val_batch[1].T
                     val_accuracy = accuracy.eval({x:val_image, y:val_label})
-                    print("---validation accuracy: %g"%(val_accuracy))
+                    print("\t---validation accuracy: %g"%(val_accuracy))
 
                 if checkpoint_ != -1 and global_batch_timer % checkpoint_ == 0:
                     output_path = "checkpoints/"+checkpoint_write_prefix_+schedule["prefix"]+"_s"+str(sched_no)+"_drsae_model"
