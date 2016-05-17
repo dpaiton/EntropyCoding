@@ -19,16 +19,17 @@ def display_data_tiled(data, title='', prev_fig=None):
     # normalize input & remove extra dims
     data = ((data - data.min()) / (data.max() - data.min())).squeeze()
 
-    n = int(np.ceil(np.sqrt(data.shape[0])))
-    padding = (((0, n ** 2 - data.shape[0]),
-               (1, 1), (1, 1))                 # add some space between filters
-               + ((0, 0),) * (data.ndim - 3))  # don't pad the last dimension (if there is one)
+    if len(data.shape) >= 3:
+        n = int(np.ceil(np.sqrt(data.shape[0])))
+        padding = (((0, n ** 2 - data.shape[0]),
+                   (1, 1), (1, 1))                 # add some space between filters
+                   + ((0, 0),) * (data.ndim - 3))  # don't pad the last dimension (if there is one)
 
-    data = np.pad(data, padding, mode='constant', constant_values=1)
+        data = np.pad(data, padding, mode='constant', constant_values=1)
 
-    # tile the filters into an image
-    data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + tuple(range(4, data.ndim + 1)))
-    data = data.reshape((n * data.shape[1], n * data.shape[3]) + data.shape[4:])
+        # tile the filters into an image
+        data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + tuple(range(4, data.ndim + 1)))
+        data = data.reshape((n * data.shape[1], n * data.shape[3]) + data.shape[4:])
 
     if prev_fig is None:
         fig_no, sub_axis = plt.subplots(1)
@@ -48,7 +49,7 @@ def display_data_tiled(data, title='', prev_fig=None):
         fig_no.show()
     else:
         fig_no.canvas.draw()
-        
+
     return (fig_no, sub_axis, axis_image)
 
 """
