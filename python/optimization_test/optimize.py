@@ -1,9 +1,9 @@
 import IPython
-import theano
-import theano.tensor as T
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import theano
+import theano.tensor as T
 
 def qDist(x, beta):
     return np.multiply(np.exp(-beta * x), 1.0/np.array([np.sum(np.exp(-beta * x), axis=1),]*x.shape[1]).transpose())
@@ -70,14 +70,16 @@ def gradCheck(x, eps, node_weight, batch_weight):
     error2 = np.abs(act_grad - est_grad)
     error3 = np.abs(act_grad - thn_grad)
 
-    IPython.embed()
-
     error = np.abs(act_grad - est_grad)
     return error
 
 def main(args):
     #jac:True means that the optfn returns gradient as well as loss
     # requried for CG, BFGS, Newton-CG, L-BFGS-B, TNC, SLSQP, dogleg, trust-ncg
+    #
+    #maxcor - The maximum number of variable metric corrections used to define
+    # the limited memory matrix. (The limited memory BFGS method does not store
+    #the full hessian but uses this many terms in an approximation to it.)
     minfn_args = {
         "args": (args["num_batch"], args["num_nodes"], args["beta"], args["node_weight"], args["batch_weight"]),
         "method": "L-BFGS-B", "jac": True,
@@ -86,14 +88,15 @@ def main(args):
 
     results = []
     for example in range(args["x0"].shape[0]):
-        #print "\nEXAMPLE # " + str(example)
+        print "\nEXAMPLE # " + str(example)
         results.append(minimize(optfn, args["x0"][example,:,:], **minfn_args))
 
     if args["plot"]:
-        for result in results:
-            plt.figure()
+        for res_no, result in enumerate(results):
+            fig = plt.figure()
             plt.hist(result.x)
             plt.show(block=False)
+            fig.suptitle("example number "+str(res_no)+" batch_only")
 
     if args["grad_check"]:
         #for example in range(args["x0"].shape[0]):
@@ -102,8 +105,8 @@ def main(args):
     IPython.embed()
 
 if __name__ == "__main__":
-    plot_figs  = False
-    verbose    = False
+    plot_figs  = True
+    verbose    = True
     grad_check = True
 
     n_iter = 1000
@@ -112,16 +115,16 @@ if __name__ == "__main__":
     num_nodes = 10
 
     # Only the left term (minimize entropy per image)
-    #batch_weight = 0.0000000000001
+    #batch_weight = 1e-12
     #node_weight = 1.0
 
     # Only the right term (maximize entropy per batch)
     #batch_weight = 1.0
-    #node_weight = 0.0000000000001
+    #node_weight = 1e-12
 
     # Both terms
-    batch_weight = 0.2
-    node_weight= 0.8
+    batch_weight = 0.9
+    node_weight= 0.1
 
     beta = -1.0
 
