@@ -26,14 +26,14 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
 # Writing
-checkpoint_ = 5000    # How often to checkpoint weights. -1 for no checkpointing
+checkpoint_ = 1000    # How often to checkpoint weights. -1 for no checkpointing
 #TODO: setup versioning in graph_def
-checkpoint_write_prefix_ = "v0.01"
+checkpoint_write_prefix_ = "v0"
 # Reading
 load_checkpoint_ = False
 global_batch_index_ = 20000
 checkpoint_sched_no_ = 1
-checkpoint_read_prefix_ = "v0.02"
+checkpoint_read_prefix_ = "v0"
 
 eps = 1e-12
 
@@ -122,6 +122,13 @@ with tf.name_scope("loss") as scope:
         supervised_loss = cross_entropy_loss
     total_loss = unsupervised_loss + supervised_loss
 
+## Normalizing operations
+with tf.name_scope("normalize_weights") as scope:
+    norm_E = E.assign(tf.nn.l2_normalize(E, dim=1, epsilon=eps, name="row_l2_norm"))
+    norm_D = D.assign(tf.nn.l2_normalize(D, dim=0, epsilon=eps, name="col_l2_norm"))
+    norm_C = C.assign(tf.nn.l2_normalize(C, dim=1, epsilon=eps, name="row_l2_norm"))
+    normalize_weights = tf.group(norm_E, norm_D, norm_C, name="do_weight_normalization")
+
 ## Load in scheduler
 schedules = scheduler.schedule().blocks
 
@@ -132,13 +139,6 @@ epsilon_ = 1e-7
 train_steps = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
     name="adam_update").minimize(total_loss,
     var_list=[E, D, S, b, C]) for sch in range(len(schedules))]
-
-## Normalizing operations
-with tf.name_scope("normalize_weights") as scope:
-    norm_E = E.assign(tf.nn.l2_normalize(E, dim=1, epsilon=eps, name="row_l2_norm"))
-    norm_D = D.assign(tf.nn.l2_normalize(D, dim=0, epsilon=eps, name="col_l2_norm"))
-    norm_C = C.assign(tf.nn.l2_normalize(C, dim=1, epsilon=eps, name="row_l2_norm"))
-    normalize_weights = tf.group(norm_E, norm_D, norm_C, name="do_weight_normalization")
 
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
@@ -175,7 +175,6 @@ with tf.Session() as sess:
 
         ## Write graph to text file
         tf.train.write_graph(sess.graph_def, "checkpoints", "drsae_graph.pb", False)
-        tf.train.SummaryWriter("checkpoints", sess.graph)
 
         global_batch_timer = 0
         for sched_no, schedule in enumerate(schedules):

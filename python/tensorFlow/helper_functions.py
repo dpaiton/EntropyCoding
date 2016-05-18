@@ -17,7 +17,7 @@ Inpus:
 """
 def display_data_tiled(data, title='', prev_fig=None):
     # normalize input & remove extra dims
-    data = ((data - data.min()) / (data.max() - data.min())).squeeze()
+    data = (data / np.max(np.abs(data))).squeeze()
 
     if len(data.shape) >= 3:
         n = int(np.ceil(np.sqrt(data.shape[0])))
@@ -34,15 +34,11 @@ def display_data_tiled(data, title='', prev_fig=None):
     if prev_fig is None:
         fig_no, sub_axis = plt.subplots(1)
         axis_image = sub_axis.imshow(data, cmap='Greys', interpolation='nearest')
+        axis_image.set_clim(vmin=-1.0, vmax=1.0)
         cbar = fig_no.colorbar(axis_image)
     else:
         (fig_no, sub_axis, axis_image) = prev_fig
         axis_image.set_data(data)
-        axis_image.autoscale()
-
-    #for axis in fig_no.axes:
-    #    axis.get_yaxis().set_visible(False)
-    #    axis.get_xaxis().set_visible(False)
 
     fig_no.suptitle(title)
     if prev_fig is None:
