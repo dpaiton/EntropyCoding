@@ -1,5 +1,5 @@
 """
-    This code implements a modification of the model described in
+    This code implements the model described in
     JT Rolfe, Y Lecun (2013) - Discriminative Recurrent Sparse Auto-Encoders
 
     Code written by Dylan Paiton
