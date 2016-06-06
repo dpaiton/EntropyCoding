@@ -3,7 +3,7 @@ import numpy as np
 import helper_functions as hf
 import IPython
 
-import tensorflow as tf # always import tensorflow after other imports
+import tensorflow as tf # always import tensorflow after primary imports
 from tensorflow.examples.tutorials.mnist import input_data
 import lca_schedule as scheduler
 
@@ -242,4 +242,5 @@ with tf.Session() as sess:
 
                 global_batch_timer += 1
 
+        print(sess.run(accuracy, feed_dict={s:dataset.test.images.T, y:dataset.test.labels.T, lamb:lambda_}))
         IPython.embed()

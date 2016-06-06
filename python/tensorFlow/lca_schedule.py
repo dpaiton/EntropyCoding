@@ -20,14 +20,7 @@ class schedule(object):
             "gamma":0.1,
             "learning_rate":0.01,
             "num_steps":50,
-            "num_batches":5001},
-        \
-            {"prefix":"both",
-            "lambda":0.10,
-            "gamma":0.1,
-            "learning_rate":0.01,
-            "num_steps":50,
-            "num_batches":5001},
+            "num_batches":10001},
         \
             {"prefix":"both",
             "lambda":0.10,
