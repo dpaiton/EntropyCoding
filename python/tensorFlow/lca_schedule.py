@@ -9,7 +9,7 @@ class schedule(object):
     def __init__(self):
         self.blocks = [ \
             {"prefix":"unsupervised",
-            "lambda":0.1,
+            "lambda":0.10,
             "gamma":0.0,
             "learning_rate":0.01,
             "num_steps":50,
