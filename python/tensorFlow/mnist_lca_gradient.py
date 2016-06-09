@@ -25,12 +25,11 @@ beta_2_ = 0.999
 epsilon_ = 1e-7
 
 # Display & Checkpointing
-version = "0"
-checkpoint_ = 25
-train_display_ = 1  # How often to display status updates
-val_display_ = 5
+version = "1"
+checkpoint_ = 1000 
+train_display_ = 10 # How often to display status updates
+val_display_ = 50
 display_plots_ = False
-write_plots_ = True #TODO: Setup write_plots_
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/output/"
 device_ = "/cpu:0"
 
@@ -72,10 +71,10 @@ def T(u, lamb, thresh_type="soft"):
   # here I assign a to be u-lambda and e to be a tensor of zeros, this will perform thresholding function
   if thresh_type is "soft":
     return tf.select(tf.greater_equal(u, lamb),
-      u-lamb, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
+      u-lamb, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
   else:
     return tf.select(tf.greater_equal(u, lamb),
-      u, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
+      u, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
 
 def compute_recon(phi, a):
   """
@@ -100,7 +99,8 @@ with tf.name_scope("parameters") as scope:
 
 ## Initialize membrane potential
 with tf.name_scope("dynamic_variables") as scope:
-  u = tf.Variable(np.zeros([m_, batch_], dtype=np.float32), trainable=False, name="membrane_potential")
+  u = tf.Variable(tf.zeros(shape=tf.pack([m_, tf.shape(s)[1]]), dtype=tf.float32, name="u_init"),
+    trainable=False, validate_shape=False, name="u")
 
 with tf.name_scope("weights") as scope:
   ## Initialize dictionary
@@ -125,15 +125,18 @@ with tf.name_scope("output") as scope:
   with tf.name_scope("image_estimate"):
     s_ = compute_recon(phi, T(u, lamb, thresh_type=thresh_))
   with tf.name_scope("label_estimate"):
-    y_ = tf.nn.softmax(tf.matmul(W, tf.nn.l2_normalize(T(u, lamb, thresh_type=thresh_),
-      dim=0, epsilon=1e-12, name="col_l2_norm"), name="classify"), name="softmax")
+    ## TODO: Test w/ and w/out normalization
+    #y_ = tf.nn.softmax(tf.matmul(W, tf.nn.l2_normalize(T(u, lamb, thresh_type=thresh_),
+    #  dim=0, epsilon=1e-12, name="col_l2_norm"), name="classify"), name="softmax")
+    y_ = tf.nn.softmax(tf.matmul(W, T(u, lamb, thresh_type=thresh_),
+      name="classify"), name="softmax")
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
-  du = (1 - eta) * u + eta * (\
-    b(phi, s) - \
-    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) - \
-    gamma * tf.matmul(tf.transpose(W), y_))
+  du = ((1 - eta) * u + eta * (
+    b(phi, s) -
+    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) -
+    gamma * tf.matmul(tf.transpose(W), tf.mul(y,y_))))
 
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
@@ -151,9 +154,9 @@ with tf.name_scope("loss") as scope:
 
 with tf.name_scope("accuracy_calculation") as scope:
   with tf.name_scope("prediction_bools"):
-    correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(y, 1))
+    correct_prediction = tf.equal(tf.argmax(y_, 0), tf.argmax(y, 0), name="individual_accuracy")
   with tf.name_scope("accuracy"):
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="avg_accuracy")
 
 ## Load in scheduler
 schedules = scheduler.schedule().blocks
@@ -181,10 +184,6 @@ phi_prev_fig = None
 recon_prev_fig = None
 with tf.Session() as sess:
   with tf.device(device_):
-    sess.run(init_op)
-    tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
-      "lca_gradient_graph_v"+version+".pb", as_text=False)
-
     global_batch_timer = 0
     for sched_no, schedule in enumerate(schedules):
       print("\n-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
@@ -202,12 +201,18 @@ with tf.Session() as sess:
         input_image = hf.normalize_image(batch[0]).T
         input_label = batch[1].T
 
+        sess.run(init_op, feed_dict={s:input_image, y:input_label})
+
+        if trial == 0 and sched_no == 0:
+          tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
+            "lca_gradient_graph_v"+version+".pb", as_text=False)
+
         ## Normalize weights
         normalize_weights.run()
 
         ## Converge network
         for t in range(num_steps_):
-          step_lca.run({s:input_image, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
+          step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
 
         train_weights[sched_no].run({\
           s:input_image,
@@ -240,9 +245,13 @@ with tf.Session() as sess:
               val_batch = dataset.validation.next_batch(5000) # Full validation set
               val_image = hf.normalize_image(val_batch[0]).T
               val_label = val_batch[1].T
-              val_accuracy = accuracy.eval({s:val_image, y:val_label, lamb:lambda_})
+
+              temp_sess = tf.Session()
+              temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
+
+              val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
               print("\t---validation accuracy: %g"%(val_accuracy))
-        if trial % checkpoint_ == 0:
+        if trial % checkpoint_ == 0 and checkpoint_ != -1:
           saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version, global_step=global_batch_timer)
 
         global_batch_timer += 1
