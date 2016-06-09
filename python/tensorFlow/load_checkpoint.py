@@ -1,81 +1,61 @@
+import os
+from tensorflow.python.client import graph_util
 import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
-import helper_functions as hf
-import random
-import IPython
-from tensorflow.examples.tutorials.mnist import input_data
-from tensorflow.core.framework import graph_pb2
-from tensorflow.python.platform import gfile
-from tensorflow.python import ops
-from google.protobuf import text_format
 
-class RestoredVariable(tf.Variable):
-    """
-    A variable restored from disk
-    """
-    def __init__(self, name, trainable=False, collections=None, graph=None):
-        if graph is None:
-            graph = tf.get_default_graph()
+class checkpoint_session:
+  def __init__(self, params):
+    if not tf.gfile.Exists(params["input_graph"]):
+      print("Input graph file '" + input_graph + "' does not exist!")
+      return -1
 
-        if collections is None:
-            collections = [ops.GraphKeys.VARIABLES]
-        if trainable and ops.GraphKeys.TRAINABLE_VARIABLES not in collections:
-            # pylint: disable=g-no-augmented-assignment
-            #
-            # Pylint wants us to write collections += [...TRAINABLE_VARIABLES] which
-            # is not the same (it modifies the list in place.)  Here, we only want to
-            # modify the value of the variable, not the list.
-            collections = collections + [ops.GraphKeys.TRAINABLE_VARIABLES]
-            # pylint: enable=g-no-augmented-assignment
+    if not tf.gfile.Exists(params["input_saver"]):
+      print("Input saver file '" + input_saver + "' does not exist!")
+      return -1
 
-        self._variable = graph.as_graph_element(name).outputs[0]
-        self._snapshot = graph.as_graph_element(name + '/read').outputs[0]
-        self._initializer_op = graph.as_graph_element(name + '/Assign')
+    if not tf.gfile.Glob(params["input_checkpoint"]):
+      print("Input checkpoint '" + input_checkpoint + "' doesn't exist!")
+      return -1
 
-        i_name = name + '/Initializer/'
-        keys = [k for k in graph._nodes_by_name.keys() if k.startswith(i_name) and '/' not in k[len(i_name):] ]
-        if len(keys) != 1:
-            raise ValueError('Could not find initializer for variable', keys)
+    if params["output_graph"] == "":
+      params["output_graph"] = "./"
 
-        self._initial_value = None #initial_value node
+    self.params = params
+    self.session = None
+    self.graph_def = None
+    self.node_names = []
+    self.loaded = False
 
-        for key in collections:
-            graph.add_to_collection(key, self)
-        self._save_slice_info = None
+  def do_load(self):
+    # Read binary graph file into graph_def structure
+    self.graph_def = tf.GraphDef()
+    with tf.gfile.FastGFile(self.params["input_graph"], "rb") as f:
+      self.graph_def.ParseFromString(f.read())
 
-graph_file =  "checkpoints/drsae_graph.pb"
-checkpoint_file = "checkpoints/v0.01_s1_drsae_model-20000"
-var_list = ["E", "D", "S", "b", "C"]
+    # Strip nodes of device specification, collect list of node names
+    for node in self.graph_def.node:
+      node.device = ""
+      self.node_names.append(node.name)
 
-sess = tf.InteractiveSession()
+    # Load the session graph
+    _ = tf.import_graph_def(self.graph_def, name="")
 
-with gfile.FastGFile(graph_file, "rb") as f:
-    graph_def = tf.GraphDef()
-    graph_def.ParseFromString(f.read())
+    # Initialize the session, restore variables from checkpoint
+    self.session = tf.Session()
+    with tf.gfile.FastGFile(self.params["input_saver"], "rb") as f:
+      saver_def = tf.train.SaverDef()
+      saver_def.ParseFromString(f.read())
+      saver = tf.train.Saver(saver_def=saver_def)
+      saver.restore(self.session, self.params["input_checkpoint"])
 
-#sess.graph.as_default()
-IPython.embed()
-res = tf.import_graph_def(graph_def)
+    self.loaded = True
 
-restored_vars = []
-for node in graph_def.node:
-    if node.op == "Variable":
-        restored_vars.append(RestoredVariable(node.name))
+  def write_constant_graph_def(self):
+    if not os.path.exists(os.path.dirname(self.params["output_graph"])):
+      os.makedirs(os.path.dirname(self.params["output_graph"]))
+    output_graph_def = graph_util.convert_variables_to_constants(self.session, self.graph_def,
+      self.node_names)
+    with tf.gfile.GFile(self.params["output_graph"], "wb") as f:
+      f.write(output_graph_def.SerializeToString())
 
-saver = tf.train.Saver(var_list=restored_vars, name='restored-' + ('%016x' % random.randrange(16**16)))
-
-saver.restore(tf.get_default_session(), checkpoint_file)
-
-
-#graph_def = graph_pb2.GraphDef()
-#
-#with open(graph_file, "rb") as f:
-#    graph_def.ParseFromString(f.read)
-#    #text_format.Merge(f.read(), graph_def)
-#
-#saver = tf.train.Saver()
-#
-#saver.restore(sess, )
-
-IPython.embed()
+  def close_sess(self):
+    self.session.close()
