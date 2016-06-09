@@ -28,7 +28,8 @@ def display_data_tiled(data, title='', prev_fig=None):
         data = np.pad(data, padding, mode='constant', constant_values=1)
 
         # tile the filters into an image
-        data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + tuple(range(4, data.ndim + 1)))
+        data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + \
+            tuple(range(4, data.ndim + 1)))
         data = data.reshape((n * data.shape[1], n * data.shape[3]) + data.shape[4:])
 
     if prev_fig is None:
@@ -79,4 +80,6 @@ Inputs:
           normalization is done per image, not across the batch
 """
 def normalize_image(img):
-    return np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(img.shape[0])])
+  im_shp = img.shape[0]
+  norm = np.vstack([(img[idx,:]-np.mean(img[idx,:]))/np.std(img[idx,:]) for idx in range(im_shp)])
+  return norm
