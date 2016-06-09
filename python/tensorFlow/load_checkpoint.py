@@ -25,7 +25,7 @@ class checkpoint_session:
     self.node_names = []
     self.loaded = False
 
-  def do_load(self):
+  def load(self):
     # Read binary graph file into graph_def structure
     self.graph_def = tf.GraphDef()
     with tf.gfile.FastGFile(self.params["input_graph"], "rb") as f:
