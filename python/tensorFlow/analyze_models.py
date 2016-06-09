@@ -21,8 +21,8 @@ def main(args):
   m_ = W_eval.shape[1]
 
   w_prev_fig = None
-  #w_prev_fig = hf.display_data_tiled(W_eval.reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-  #  title="Classification matrix", prev_fig=w_prev_fig)
+  w_prev_fig = hf.display_data_tiled(W_eval.reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+    title="Classification matrix", prev_fig=w_prev_fig, save_filename=args["out_path"]+"LCA_W.ps")
 
   IPython.embed()
 
