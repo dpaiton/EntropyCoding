@@ -26,9 +26,9 @@ epsilon_ = 1e-7
 
 # Display & Checkpointing
 version = "1"
-checkpoint_ = 1000 
+checkpoint_ = 10 
 train_display_ = 10 # How often to display status updates
-val_display_ = 50
+val_display_ = 20
 display_plots_ = False
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/output/"
 device_ = "/cpu:0"
@@ -141,6 +141,9 @@ with tf.name_scope("update_u") as scope:
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
 
+  ## Operation to clear u
+  clear_u = tf.group(u.assign(tf.zeros(shape=tf.pack([m_, tf.shape(s)[1]]), dtype=tf.float32, name="zeros")))
+
 with tf.name_scope("loss") as scope:
   with tf.name_scope("unsupervised"):
     euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
@@ -196,12 +199,15 @@ with tf.Session() as sess:
       num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
 
+      ## Run session, passing empty arrays to set up network size
+      sess.run(init_op,
+        feed_dict={s:np.zeros((n_, batch_), dtype=np.float32),
+        y:np.zeros((l_, batch_), dtype=np.float32)})
+
       for trial in range(num_batches_):
         batch = dataset.train.next_batch(batch_)
         input_image = hf.normalize_image(batch[0]).T
         input_label = batch[1].T
-
-        sess.run(init_op, feed_dict={s:input_image, y:input_label})
 
         if trial == 0 and sched_no == 0:
           tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
@@ -211,6 +217,7 @@ with tf.Session() as sess:
         normalize_weights.run()
 
         ## Converge network
+        clear_u.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
         for t in range(num_steps_):
           step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
 
@@ -221,36 +228,37 @@ with tf.Session() as sess:
           lamb:lambda_,
           gamma:gamma_})
 
-        if trial % train_display_ == 0:
-            sparsity = 100 * np.count_nonzero(T(u, lamb, thresh_).eval({lamb:lambda_})) / (m_ * batch_)
-            train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
-            print("\nGlobal batch index is %g"%global_batch_timer)
-            print("Finished trial %g out of %g, max val of u is %g, num active of a was %g percent"%(trial+1,
-              num_batches_, u.eval().max(), sparsity))
-            print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
-            print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
-            print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
-            print("\tsupervised loss:\t%g"%(supervised_loss.eval({s:input_image,
-              y:input_label, gamma:gamma_, lamb:lambda_})))
-            print("\ttrain accuracy:\t\t%g"%(train_accuracy))
-            if display_plots_: #TODO: plot weight gradients
-              w_prev_fig = hf.display_data_tiled(W.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-                title="Classification matrix at trial number "+str(global_batch_timer), prev_fig=w_prev_fig)
-              recon_prev_fig = hf.display_data_tiled(
-                tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-                title="Reconstructions in trial "+str(global_batch_timer), prev_fig=recon_prev_fig)
-              phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-                title="Dictionary for trial "+str(global_batch_timer), prev_fig=phi_prev_fig)
-            if val_display_ != -1 and global_batch_timer % val_display_ == 0:
-              val_batch = dataset.validation.next_batch(5000) # Full validation set
-              val_image = hf.normalize_image(val_batch[0]).T
-              val_label = val_batch[1].T
+        if global_batch_timer % train_display_ == 0:
+          sparsity = 100 * np.count_nonzero(T(u, lamb, thresh_).eval({lamb:lambda_})) / (m_ * batch_)
+          train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
+          print("\nGlobal batch index is %g"%global_batch_timer)
+          print("Finished trial %g out of %g, max val of u is %g, num active of a was %g percent"%(trial+1,
+            num_batches_, u.eval().max(), sparsity))
+          print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
+          print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
+          print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
+          print("\tsupervised loss:\t%g"%(supervised_loss.eval({s:input_image,
+            y:input_label, gamma:gamma_, lamb:lambda_})))
+          print("\ttrain accuracy:\t\t%g"%(train_accuracy))
+          if display_plots_: #TODO: plot weight gradients
+            w_prev_fig = hf.display_data_tiled(W.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Classification matrix at trial number "+str(global_batch_timer), prev_fig=w_prev_fig)
+            recon_prev_fig = hf.display_data_tiled(
+              tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Reconstructions in trial "+str(global_batch_timer), prev_fig=recon_prev_fig)
+            phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Dictionary for trial "+str(global_batch_timer), prev_fig=phi_prev_fig)
+        if val_display_ != -1 and global_batch_timer % val_display_ == 0:
+          val_image = hf.normalize_image(dataset.validation.images).T
+          val_label = dataset.validation.labels.T
 
-              temp_sess = tf.Session()
-              temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
+          with tf.Session() as temp_sess:
+            temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
+            for t in range(num_steps_):
+              temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:dt_/tau_, lamb:lambda_, gamma:0})
+            val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
 
-              val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
-              print("\t---validation accuracy: %g"%(val_accuracy))
+          print("\t---validation accuracy: %g"%(val_accuracy))
         if trial % checkpoint_ == 0 and checkpoint_ != -1:
           saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version, global_step=global_batch_timer)
 
