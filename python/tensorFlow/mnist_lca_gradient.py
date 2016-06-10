@@ -19,17 +19,17 @@ dt_    = 0.001      # [s] discrete time constant
 tau_   = 0.01       # [s] LCA time constant
 thresh_ = "soft"    # Type of thresholding for LCA -> can be "hard" or "soft"
 
-# ADAM parameters
-beta_1_ = 0.9
-beta_2_ = 0.999
-epsilon_ = 1e-7
+# ADADELTA parameters
+learning_rate_ = 0.001
+rho_ = 0.95
+adadelta_epsilon_ = 1e-8
 
 # Display & Checkpointing
-version = "1"
-checkpoint_ = 10 
+version = "0"
+checkpoint_ = 10000 
 train_display_ = 10 # How often to display status updates
-val_display_ = 20
-display_plots_ = False
+val_display_ = 100
+display_plots_ = True 
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/output/"
 device_ = "/cpu:0"
 
@@ -165,10 +165,11 @@ with tf.name_scope("accuracy_calculation") as scope:
 schedules = scheduler.schedule().blocks
 
 ## Weight update method
-var_lists = [[phi] if sch["prefix"] == "unsupervised" else [W] if sch["prefix"] == "supervised" else [phi, W] for sch in schedules]
-train_weights = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
-  name="adam_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
-  name="adam_minimzer") for sch_no in range(len(schedules))]
+with tf.name_scope("Optimizer") as scope:
+  var_lists = [[phi] if sch["prefix"] == "unsupervised" else [W] if sch["prefix"] == "supervised" else [phi, W] for sch in schedules]
+  train_weights = [tf.train.AdadeltaOptimizer(lr, rho_, adadelta_epsilon_,
+    name="adadelta_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
+    name="adadelta_minimzer") for sch_no in range(len(schedules))]
 
 ## Checkpointing & graph output
 if checkpoint_ != -1:
