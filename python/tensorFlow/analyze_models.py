@@ -17,13 +17,13 @@ def main(args):
   checkpoint.load()
 
   ## Extract tensors for analysis
+  s = checkpoint.session.graph.get_tensor_by_name("constants/input_data:0")
+  y = checkpoint.session.graph.get_tensor_by_name("constants/input_label:0")
+  lamb = checkpoint.session.graph.get_tensor_by_name("parameters/sparsity_tradeoff:0")
   phi = checkpoint.session.graph.get_tensor_by_name("weights/phi:0")
   W = checkpoint.session.graph.get_tensor_by_name("weights/W:0")
   recon = checkpoint.session.graph.get_tensor_by_name("output/image_estimate/reconstruction:0")
-  accuracy = checkpoint.session.graph.get_tensor_by_name("accuracy_calculation/accuracy/Mean:0")
-  lamb = checkpoint.session.graph.get_tensor_by_name("parameters/sparsity_tradeoff:0")
-  s = checkpoint.session.graph.get_tensor_by_name("constants/input_data:0")
-  y = checkpoint.session.graph.get_tensor_by_name("constants/input_label:0")
+  accuracy = checkpoint.session.graph.get_tensor_by_name("accuracy_calculation/accuracy/avg_accuracy:0")
 
   ## Evaluate variables for analysis
   W_eval = checkpoint.session.run(W, feed_dict={})
@@ -54,12 +54,21 @@ def main(args):
 
   ## Setup data for testing
   dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
-  test_batch = dataset.test.next_batch(10000) # Full test set
-  test_image = hf.normalize_image(test_batch[0]).T
-  test_label = test_batch[1].T
+  test_images = hf.normalize_image(dataset.test.images).T # Full test set
+  test_labels = dataset.test.labels.T
 
   ## Compute test accuracy
-  test_accuracy = checkpoint.session.run(accuracy, feed_dict={s:test_image, y:test_label, lamb:0.1})
+  # Session definition is fixed to size batch_,
+  # so we have to test batch_ images at a time
+  test_batch_ = test_images.shape[1]
+  test_accuracy = 0.0
+  num_mini_batches = 0.0
+  test_set_batched = [(test_images[:,start:start+batch_], test_labels[:,start:start+batch_]) for start in range(0, test_batch_, batch_)]
+  for mini_batch in test_set_batched:
+      if mini_batch[0].shape[1] == batch_:
+        test_accuracy += checkpoint.session.run(accuracy, feed_dict={s:mini_batch[0], y:mini_batch[1], lamb:0.1})
+        num_mini_batches += 1.0
+  test_accuracy /= num_mini_batches
   print("test accuracy: %g"%(test_accuracy))
 
 if __name__ == "__main__":
@@ -70,15 +79,15 @@ if __name__ == "__main__":
   # Checkpoint loading 
   args["checkpoint_dir"] = chk_dir
   # TF GraphDef file to load
-  args["input_graph"] = chk_dir+"/lca_gradient_graph_v0.pb"
+  args["input_graph"] = chk_dir+"/lca_gradient_graph_v1.pb"
   # TF saver file to load
   args["input_saver"] = chk_dir+"/saver.def"
   # TF variables (checkpoint made with saver.save()) file to load
-  args["input_checkpoint"] = chk_dir+"/lca_checkpoint_v0_FINAL-50"
+  args["input_checkpoint"] = chk_dir+"/lca_checkpoint_v1-90"
   # TF GraphDef save name
-  args["output_graph"] = chk_dir+"/lca_checkpoint_v0_FINAL-50.frozen"
+  args["output_graph"] = chk_dir+"/lca_checkpoint_v1-90.frozen"
 
   # Path for analysis outputs
-  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/analysis/"
+  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/analysis/v1_"
 
   main(args)
