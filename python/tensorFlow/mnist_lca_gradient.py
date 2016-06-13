@@ -27,9 +27,10 @@ adadelta_epsilon_ = 1e-8
 # Display & Checkpointing
 version = "0"
 checkpoint_ = 10000 
-train_display_ = 10 # How often to display status updates
-val_display_ = 100
-display_plots_ = True 
+train_display_ = 100 # How often to display status updates
+val_display_ = 500
+display_plots_ = False
+save_plots_ = True
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/output/"
 device_ = "/cpu:0"
 
@@ -133,10 +134,9 @@ with tf.name_scope("output") as scope:
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
-  du = ((1 - eta) * u + eta * (
-    b(phi, s) -
+  du = ((1 - eta) * u + eta * (b(phi, s) -
     tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) -
-    gamma * tf.matmul(tf.transpose(W), tf.mul(y,y_))))
+    gamma * tf.matmul(tf.transpose(W), tf.mul(y, y_))))
 
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
@@ -249,16 +249,30 @@ with tf.Session() as sess:
               title="Reconstructions in trial "+str(global_batch_timer), prev_fig=recon_prev_fig)
             phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Dictionary for trial "+str(global_batch_timer), prev_fig=phi_prev_fig)
+          if save_plots_:
+            plot_out_dir = checkpoint_base_path+"/vis/"
+            if not os.path.exists(plot_out_dir):
+              os.makedirs(plot_out_dir)
+            _ = hf.save_data_tiled(
+              W.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Classification matrix at trial number "+str(global_batch_timer),
+              save_filename=plot_out_dir+"class_tr"+str(global_batch_timer)+".ps")
+            _ = hf.save_data_tiled(
+              tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Reconstructions in trial "+str(global_batch_timer),
+              save_filename=plot_out_dir+"recon_tr"+str(global_batch_timer)+".ps")
+            _ = hf.save_data_tiled(
+              tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Dictionary for trial "+str(global_batch_timer),
+              save_filename=plot_out_dir+"phi_tr"+str(global_batch_timer)+".ps")
         if val_display_ != -1 and global_batch_timer % val_display_ == 0:
           val_image = hf.normalize_image(dataset.validation.images).T
           val_label = dataset.validation.labels.T
-
           with tf.Session() as temp_sess:
             temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
             for t in range(num_steps_):
               temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:dt_/tau_, lamb:lambda_, gamma:0})
             val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
-
           print("\t---validation accuracy: %g"%(val_accuracy))
         if trial % checkpoint_ == 0 and checkpoint_ != -1:
           saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version, global_step=global_batch_timer)
