@@ -1,3 +1,7 @@
+import matplotlib
+# Force matplotlib to not use any Xwindows backend
+matplotlib.use('Agg')
+
 import os
 import numpy as np
 import helper_functions as hf
@@ -20,19 +24,24 @@ tau_   = 0.01       # [s] LCA time constant
 thresh_ = "soft"    # Type of thresholding for LCA -> can be "hard" or "soft"
 
 # ADADELTA parameters
-learning_rate_ = 0.001
-rho_ = 0.95
-adadelta_epsilon_ = 1e-8
+#learning_rate_ = 0.001
+#rho_ = 0.95
+#adadelta_epsilon_ = 1e-8
+
+# ADAM parameters
+beta_1_ = 0.9
+beta_2_ = 0.999
+epsilon_ = 1e-7
 
 # Display & Checkpointing
 version = "0"
-checkpoint_ = 10000 
+checkpoint_ = 10000
 train_display_ = 100 # How often to display status updates
 val_display_ = 500
 display_plots_ = False
 save_plots_ = True
-checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/output/"
-device_ = "/cpu:0"
+checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/output/"
+device_ = "/gpu:0"
 
 tf.set_random_seed(1234567890)
 
@@ -114,29 +123,29 @@ with tf.name_scope("weights") as scope:
   phi = tf.Variable(tf.truncated_normal([n_, m_], mean=weight_init_mean,
     stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="phi_init"), trainable=True, name="phi")
 
-  W = tf.Variable(tf.truncated_normal([l_, m_], mean=weight_init_mean,
-    stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="W_init"), trainable=True, name="W")
+  w = tf.Variable(tf.truncated_normal([l_, m_], mean=weight_init_mean,
+    stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="W_init"), trainable=True, name="w")
 
 with tf.name_scope("normalize_weights") as scope:
   norm_phi = phi.assign(tf.nn.l2_normalize(phi, dim=1, epsilon=eps, name="row_l2_norm"))
-  norm_W = W.assign(tf.nn.l2_normalize(W, dim=1, epsilon=eps, name="row_l2_norm"))
-  normalize_weights = tf.group(norm_phi, norm_W, name="do_normalization")
+  norm_w = w.assign(tf.nn.l2_normalize(w, dim=1, epsilon=eps, name="row_l2_norm"))
+  normalize_weights = tf.group(norm_phi, norm_w, name="do_normalization")
 
 with tf.name_scope("output") as scope:
   with tf.name_scope("image_estimate"):
     s_ = compute_recon(phi, T(u, lamb, thresh_type=thresh_))
   with tf.name_scope("label_estimate"):
     ## TODO: Test w/ and w/out normalization
-    #y_ = tf.nn.softmax(tf.matmul(W, tf.nn.l2_normalize(T(u, lamb, thresh_type=thresh_),
+    #y_ = tf.nn.softmax(tf.matmul(w, tf.nn.l2_normalize(T(u, lamb, thresh_type=thresh_),
     #  dim=0, epsilon=1e-12, name="col_l2_norm"), name="classify"), name="softmax")
-    y_ = tf.nn.softmax(tf.matmul(W, T(u, lamb, thresh_type=thresh_),
+    y_ = tf.nn.softmax(tf.matmul(w, T(u, lamb, thresh_type=thresh_),
       name="classify"), name="softmax")
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
   du = ((1 - eta) * u + eta * (b(phi, s) -
     tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) -
-    gamma * tf.matmul(tf.transpose(W), tf.mul(y, y_))))
+    gamma * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
 
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
@@ -166,10 +175,13 @@ schedules = scheduler.schedule().blocks
 
 ## Weight update method
 with tf.name_scope("Optimizer") as scope:
-  var_lists = [[phi] if sch["prefix"] == "unsupervised" else [W] if sch["prefix"] == "supervised" else [phi, W] for sch in schedules]
-  train_weights = [tf.train.AdadeltaOptimizer(lr, rho_, adadelta_epsilon_,
-    name="adadelta_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
-    name="adadelta_minimzer") for sch_no in range(len(schedules))]
+  var_lists = [[phi] if sch["prefix"] == "unsupervised" else [w] if sch["prefix"] == "supervised" else [phi, w] for sch in schedules]
+  #train_weights = [tf.train.adadeltaoptimizer(lr, rho_, adadelta_epsilon_,
+  #  name="adadelta_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
+  #  name="adadelta_minimzer") for sch_no in range(len(schedules))]
+  train_weights = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
+    name="adam_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
+    name="adam_minimzer") for sch_no in range(len(schedules))]
 
 ## Checkpointing & graph output
 if checkpoint_ != -1:
@@ -242,7 +254,7 @@ with tf.Session() as sess:
             y:input_label, gamma:gamma_, lamb:lambda_})))
           print("\ttrain accuracy:\t\t%g"%(train_accuracy))
           if display_plots_: #TODO: plot weight gradients
-            w_prev_fig = hf.display_data_tiled(W.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+            w_prev_fig = hf.display_data_tiled(w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at trial number "+str(global_batch_timer), prev_fig=w_prev_fig)
             recon_prev_fig = hf.display_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
@@ -254,7 +266,7 @@ with tf.Session() as sess:
             if not os.path.exists(plot_out_dir):
               os.makedirs(plot_out_dir)
             _ = hf.save_data_tiled(
-              W.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at trial number "+str(global_batch_timer),
               save_filename=plot_out_dir+"class_tr"+str(global_batch_timer)+".ps")
             _ = hf.save_data_tiled(
