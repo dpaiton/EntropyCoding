@@ -1,48 +1,75 @@
-import numpy as np
-import os
-import io
-import matplotlib.pyplot as plt
-import re
+import os, io, re
 import IPython
+import numpy as np
+import helper_functions as hf
+import matplotlib.pyplot as plt
 
 """
-Plot log values over time
+Load loss file into memory
 
-Output: arrays of values
+Output: string containing log file text
 
-Input: log file location
+Input: string containing the filename of the log file
 """
-def get_log_outputs(log_file):
-    with open(log_file, "r") as f:
-        log_text = f.read()
-
-    #max_iter = float(re.findall("out of (\d+)",log_text)[0])
-
-    #time_start = 0 
-    #time_step = float(re.findall("batch number (\d+)", log_text)[0])
-    #time_list = np.arange(time_start, max_iter, time_step)
-
-    #train_accuracy_vals = np.array([float(val) for val in re.findall("train_accuracy:\s+(\d+\.?\d*)", log_text)])
-    #alpha_1_vals = np.array([float(val) for val in re.findall("alpha_1 value:\s+(\d+\.?\d*)", log_text)])
-    #alpha_2_vals = np.array([float(val) for val in re.findall("alpha_2 value:\s+(\d+\.?\d*)", log_text)])
-    #euclidean_loss = np.array([float(val) for val in re.findall("euclidean loss:\s+(\d+\.?\d*)", log_text)])
-    #sparse_loss = np.array([float(val) for val in re.findall("sparse loss:\s+(\d+\.?\d*)", log_text)])
-    #cross_entropy_loss = np.array([float(val) for val in re.findall("cross-entropy loss:\s+(\d+\.?\d*)", log_text)])
-    #supervised_loss = np.array([float(val) for val in re.findall("supervised loss:\s+(\d+\.?\d*)", log_text)])
-    #validation_accuracy = np.array([float(val) for val in re.findall("validation accuracy (\d+\.?\d*)", log_text)])
-
-    return log_text
+def load_file(log_file):
+  with open(log_file, "r") as f:
+    log_text = f.read()
+  return log_text
 
 """
-Create activation plots similar to those in
-JT Rolfe, Y Lecun (2013) - Discriminative Recurrent Sparse Auto-Encoders
+Generate array that has loss values from text
+
+Output: dictionary containing arrays of loss values
+
+Input: string containing log file text
 """
-#def plot_connection_summaries(enc_w, dec_w, rec_w
+def get_log_outputs(log_text):
+  max_iter = float(re.findall("out of (\d+),", log_text)[0])
+  batch_iter = np.array([float(val) for val in re.findall("Global batch index is (\d+)", log_text)])
 
+  euclidean_loss = np.array([float(val) for val in re.findall("euclidean loss:\s+(\d+\.?\d*)", log_text)])
+  sparse_loss = np.array([float(val) for val in re.findall("sparse loss:\s+(\d+\.?\d*)", log_text)])
+  unsupervised_loss = np.array([float(val) for val in re.findall("unsupervised loss:\s+(\d+\.?\d*)", log_text)])
+  supervised_loss = np.array([float(val) for val in re.findall("supervised loss:\s+(\d+\.?\d*)", log_text)])
+  train_accuracy = np.array([float(val) for val in re.findall("train accuracy:\s+(\d+\.?\d*)", log_text)])
+  val_accuracy = np.array([float(val) for val in re.findall("validation accuracy:\s+(\d+\.?\d*)", log_text)])
 
-log_file = "logfiles/drsae_full_schedule.log"
+  return {"max_iter":max_iter, "batch_iter":batch_iter,
+    "euclidean_loss":euclidean_loss, "sparse_loss":sparse_loss,
+    "unsupervised_loss":unsupervised_loss, "supervised_loss":supervised_loss,
+    "train_accuracy":train_accuracy, "val_accuracy":val_accuracy}
 
-log_text = get_log_outputs(log_file)
+## Set config
+log_base_path = os.path.expanduser('~')+"/Work/Projects/output/logfiles/"
+out_base_path = os.path.expanduser('~')+"/Work/Projects/analysis/"
+log_file = log_base_path+"lca_grad_test.log"
+model_version = "0"
+
+## Get data
+losses = get_log_outputs(load_file(log_file))
+
+## Plot losses
+save_filename = out_base_path+"unsupervised_loss_v"+model_version+".ps"
+
+fig_no, sub_axes = plt.subplots(3)
+axis_image = [None]*3
+axis_image[0] = sub_axes[0].plot(losses["batch_iter"], losses["euclidean_loss"])
+axis_image[1] = sub_axes[1].plot(losses["batch_iter"], losses["sparse_loss"])
+axis_image[2] = sub_axes[2].plot(losses["batch_iter"], losses["unsupervised_loss"])
+
+fig_no.suptitle("Average Unsupervised Losses per Batch", y=1.05)
+
+sub_axes[0].get_xaxis().set_ticklabels([])
+sub_axes[1].get_xaxis().set_ticklabels([])
+
+sub_axes[2].set_xlabel("Batch Number")
+
+sub_axes[0].set_ylabel("Euclidean Loss")
+sub_axes[1].set_ylabel("Sparse Loss")
+sub_axes[2].set_ylabel("Total Loss")
+fig_no.savefig(save_filename, transparent=True, bbox_inches="tight", pad_inches=0.01)
 
 IPython.embed()
 
+#TOOD: Create activation plots similar to those in Rolfe et al
+#def plot_connection_summaries(enc_w, dec_w, rec_w
