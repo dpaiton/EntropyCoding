@@ -53,7 +53,8 @@ def save_data_tiled(data, title="", save_filename=""):
   if save_filename == "":
     save_filename = "./output.ps"
   fig_no.savefig(save_filename, transparent=True, bbox_inches="tight", pad_inches=0.01)
-  return (fig_no, sub_axis, axis_image)
+  plt.close(fig_no)
+  return 0
 
 """
 Display input data as an image with reshaping
@@ -105,7 +106,8 @@ def save_data(data, title="", save_filename=""):
   if save_filename == "":
     save_filename = "./output.ps"
   fig_no.savefig(save_filename, transparent=True, bbox_inches="tight", pad_inches=0.01)
-  return (fig_no, sub_axis, axis_image)
+  plt.close(fig_no)
+  return 0
 
 """
 Display input data as an image without reshaping
