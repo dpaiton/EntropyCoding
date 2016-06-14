@@ -29,14 +29,14 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 ## Checkpointing
 # Writing
 checkpoint_ = 1000    # How often to checkpoint weights. -1 for no checkpointing
-checkpoint_write_prefix_ = "v0"
-checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/output/"
+version = "0"
+checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/drsae_output/"
 
 # Reading
 load_checkpoint_ = False
-global_batch_index_ = 20000
+checkpoint_batch_index_ = 20000
 checkpoint_sched_no_ = 1
-checkpoint_read_prefix_ = "v0"
+checkpoint_read_version_ = "0"
 
 eps = 1e-12
 
@@ -46,37 +46,38 @@ tf.set_random_seed(1234567890)
 dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
 
 ## Placeholders, constants, parameters
-with tf.name_scope("Constants") as scope:
+with tf.name_scope("constants") as scope:
   x = tf.placeholder(dtype=tf.float32, shape=[m_, None], name="input_data")   # Image data
   y = tf.placeholder(dtype=tf.float32, shape=[l_, None], name="input_label")  # Image labels
 
-with tf.name_scope("Parameters") as scope:
+with tf.name_scope("parameters") as scope:
   lamb = tf.placeholder(dtype=tf.float32, shape=(), name="sparsity_tradeoff")    # Sparsity tradeoff
   gamma = tf.placeholder(dtype=tf.float32, shape=(), name="supervised_tradeoff") # Supervised loss tradeoff
   lr = tf.placeholder(dtype=tf.float32, shape=(), name="learning_rate")          # Gradient descent learning rate
 
 ## Learned variables - to be trained with backprop
-# Encoding weights
-with tf.name_scope("encode_weights") as scope:
-  E = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([n_, m_], mean=0.0, stddev=np.sqrt(1.0),
-    dtype=tf.float32, name="E_init"), dim=1, epsilon=eps, name="row_l2_norm"),
-    trainable=True, name="encode_weights")
+with tf.name_scope("weights") as scope:
+  # Encoding weights
+  with tf.name_scope("encode_weights"):
+    E = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([n_, m_], mean=0.0, stddev=np.sqrt(1.0),
+      dtype=tf.float32, name="E_init"), dim=1, epsilon=eps, name="row_l2_norm"),
+      trainable=True, name="E")
 
-# Decoding weights
-with tf.name_scope("decode_weights") as scope:
-  D = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0),
-    dtype=tf.float32, name="D_init"), dim=0, epsilon=eps, name="col_l2_norm"),
-    trainable=True, name="D")
+  # Decoding weights
+  with tf.name_scope("decode_weights"):
+    D = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([m_, n_], mean=0.0, stddev=np.sqrt(1.0),
+      dtype=tf.float32, name="D_init"), dim=0, epsilon=eps, name="col_l2_norm"),
+      trainable=True, name="D")
 
-# Explaining away weights
-with tf.name_scope("recurrent_weights") as scope:
-  S = tf.Variable(tf.truncated_normal([n_, n_], mean=0.0, stddev=np.sqrt(1e-4),
-    dtype=tf.float32, name="S_init"), trainable=True, name="S")
+  # Explaining away weights
+  with tf.name_scope("recurrent_weights"):
+    S = tf.Variable(tf.truncated_normal([n_, n_], mean=0.0, stddev=np.sqrt(1e-4),
+      dtype=tf.float32, name="S_init"), trainable=True, name="S")
 
-# Classification matrix
-with tf.name_scope("classification_weights") as scope:
-  C = tf.Variable(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
-    dtype=tf.float32, name="C_init"), trainable=True, name="C")
+  # Classification matrix
+  with tf.name_scope("classification_weights"):
+    C = tf.Variable(tf.truncated_normal([l_, n_], mean=0.0, stddev=np.sqrt(1.0),
+      dtype=tf.float32, name="C_init"), trainable=True, name="C")
 
 # Bias
 b = tf.Variable(np.zeros([n_, 1], dtype=np.float32), trainable=True, name="bias")
@@ -111,7 +112,7 @@ with tf.name_scope("output") as scope:
       name="classify"), name="softmax") # label output
   with tf.name_scope("image_estimate"):
     ## TODO: plot average SNRdb of recons in a whole set
-    x_ = tf.matmul(D, zT, name="reconstruction")  # reconstruction
+    x_ = tf.matmul(D, z, name="reconstruction")  # reconstruction
 
 ## Loss fucntions
 with tf.name_scope("loss") as scope:
@@ -150,47 +151,50 @@ with tf.name_scope("accuracy_calculation") as scope:
   with tf.name_scope("prediction_bools"):
     correct_prediction = tf.equal(tf.argmax(y_, 1), tf.argmax(y, 1))
   with tf.name_scope("accuracy"):
-    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
-
-## Plotting figures
-e_prev_fig = None
-d_prev_fig = None
-s_prev_fig = None
-c_prev_fig = None
-b_prev_fig = None
-z_prev_fig = None
-recon_prev_fig = None
+    accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32), name="avg_accuracy")
 
 ## Checkpointing & graph output
-if checkpoint_ != -1:
+if checkpoint_ > 0:
   if not os.path.exists(checkpoint_base_path+"/checkpoints"):
     os.makedirs(checkpoint_base_path+"/checkpoints")
   #save_list = {"E":E, "D":D, "S":S, "b":b, "C":C}
   #saver = tf.train.Saver(save_list)
   saver = tf.train.Saver()
   saver_def = saver.as_saver_def()
-  with open(checkpoint_base_path+"/checkpoints/saver.def", 'wb') as f:
+  with open(checkpoint_base_path+"/checkpoints/drsae_saver_v"+version+".def", 'wb') as f:
     f.write(saver_def.SerializeToString())
 
 ## Initialization
 init_op = tf.initialize_all_variables()
+
+## Plotting figures
+if display_plots_:
+  e_prev_fig = None
+  d_prev_fig = None
+  s_prev_fig = None
+  c_prev_fig = None
+  b_prev_fig = None
+  z_prev_fig = None
+  recon_prev_fig = None
+
 with tf.Session() as sess:
   with tf.device(device_):
-    global_batch_timer = 0
+    global_step = 0
 
-    sess.run(init_op, 
+    sess.run(init_op,
       feed_dict={x:np.zeros((m_, batch_), dtype=np.float32),
       y:np.zeros((l_, batch_), dtype=np.float32)})
+
     if load_checkpoint_:
-      saver.restore(sess,
-        checkpoint_base_path+"/checkpoints/"+\
-        checkpoint_read_prefix_+"_s"+str(checkpoint_sched_no_)+"_drsae_model-"+str(global_batch_index_))
+      input_path = checkpoint_base_path+"/checkpoints/drsae_checkpoint_v"+checkpoint_read_version_+\
+        "_s"+str(checkpoint_sched_no_)+"-"+str(checkpoint_batch_index_)
+      saver.restore(sess, input_path)
 
     for sched_no, schedule in enumerate(schedules):
       if load_checkpoint_ and sched_no < checkpoint_sched_no_:
-        global_batch_timer += schedule["num_batches"]-1
+        global_step += schedule["num_batches"]-1
         continue
-      
+
       print("\n-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       print("Beginning schedule:")
       print(schedule)
@@ -201,16 +205,16 @@ with tf.Session() as sess:
       num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
 
-      for batch_idx in range(num_batches_):
+      for step in range(num_batches_):
         ## Write graph to text file
-        if batch_idx == 0 and sched_no == 0:
+        if step == 0 and sched_no == 0:
           #TODO: setup versioning in graph_def
           tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
-            "drsae_graph.pb", False)
-          
+            "drsae_graph_v"+version+".pb", False)
+
         ## Load data
         batch = dataset.train.next_batch(batch_)
-        if load_checkpoint_ and batch_idx < (global_batch_index_ - global_batch_timer):
+        if load_checkpoint_ and step < (checkpoint_batch_index_ - global_step):
           #TODO: advance batch pointer so this doesn't have to be done in a loop
           continue
 
@@ -233,37 +237,36 @@ with tf.Session() as sess:
           lamb:lambda_,
           gamma:gamma_})
 
-        if train_display_ != -1 and global_batch_timer % train_display_ == 0:
-          train_accuracy = accuracy.eval({x:input_image, y:input_label})
-          if display_plots_:
-            c_prev_fig = hf.display_data_tiled(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Classification matrix at trial number "+str(global_batch_timer), prev_fig=c_prev_fig)
-            z_prev_fig = hf.display_data(tf.transpose(z).eval(), title="Z values", prev_fig=z_prev_fig)
-            b_prev_fig = hf.display_data_tiled(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Bias at trial number "+str(global_batch_timer)+"\nEach pixel represents the bias for a neuron",
-              prev_fig=b_prev_fig)
-            s_prev_fig = hf.display_data_tiled(S.eval(),
-              title="Explaining-away matrix at trial number "+str(global_batch_timer), prev_fig=s_prev_fig)
-            d_prev_fig = hf.display_data_tiled(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Decoding matrix at trial number "+str(global_batch_timer), prev_fig=d_prev_fig)
-            e_prev_fig = hf.display_data_tiled(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Encoding matrix at trial number "+str(global_batch_timer), prev_fig=e_prev_fig)
-            recon_prev_fig = hf.display_data_tiled(
-              tf.transpose(x_).eval({x:input_image}).reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Reconstructions for trial number "+str(global_batch_timer), prev_fig=recon_prev_fig)
-
+        if global_step % train_display_ == 0 and train_display_ > 0:
           perc_active = 100*np.count_nonzero(z.eval())/np.float32(np.size(z.eval()))
-          print("\nGlobal iteration number is %g"%global_batch_timer)
-          print("\tCompleted batch number %g out of %g in current schedule"%(global_batch_timer, num_batches_))
-          print("\tpercent active:\t\t%g"%(perc_active))
+          train_accuracy = accuracy.eval({x:input_image, y:input_label})
+          print("\nGlobal batch index is %g"%global_step)
+          print("Finished step %g out of %g, num active was %g percent"%(step, num_batches_, perc_active))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({x:input_image})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({x:input_image, lamb:lambda_})))
           print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({x:input_image, lamb:lambda_})))
-          print("\tcross-entropy loss:\t%g"%(cross_entropy_loss.eval({x:input_image, y:input_label, gamma:gamma_})))
+          #print("\tcross-entropy loss:\t%g"%(cross_entropy_loss.eval({x:input_image, y:input_label, gamma:gamma_})))
           print("\tsupervised loss:\t%g"%(supervised_loss.eval({x:input_image, y:input_label, gamma:gamma_})))
           print("\ttrain accuracy:\t\t%g"%(train_accuracy))
 
-        if val_display_ != -1 and global_batch_timer % val_display_ == 0:
+          if display_plots_:
+            c_prev_fig = hf.display_data_tiled(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Classification matrix at time step"+str(global_step), prev_fig=c_prev_fig)
+            z_prev_fig = hf.display_data(tf.transpose(z).eval(), title="Z values", prev_fig=z_prev_fig)
+            b_prev_fig = hf.display_data_tiled(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Bias at time step "+str(global_step)+"\nEach pixel represents the bias for a neuron",
+              prev_fig=b_prev_fig)
+            s_prev_fig = hf.display_data_tiled(S.eval(),
+              title="Explaining-away matrix at time step "+str(global_step).zfill(5), prev_fig=s_prev_fig)
+            d_prev_fig = hf.display_data_tiled(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Decoding matrix at time step "+str(global_step).zfill(5), prev_fig=d_prev_fig)
+            e_prev_fig = hf.display_data_tiled(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Encoding matrix at time step "+str(global_step).zfill(5), prev_fig=e_prev_fig)
+            recon_prev_fig = hf.display_data_tiled(
+              tf.transpose(x_).eval().reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Reconstructions for time step "+str(global_step).zfill(5), prev_fig=recon_prev_fig)
+
+        if val_display_ > 0 and global_step % val_display_ == 0:
           val_image = hf.normalize_image(dataset.validation.images).T
           val_label = dataset.validation.labels.T
           with tf.Session() as temp_sess:
@@ -273,15 +276,14 @@ with tf.Session() as sess:
             val_accuracy = temp_sess.run(accuracy, feed_dict={x:val_image, y:val_label})
           print("\t---validation accuracy: %g"%(val_accuracy))
 
-        if checkpoint_ != -1 and global_batch_timer % checkpoint_ == 0:
-          output_path = checkpoint_base_path+"/checkpoints/"+checkpoint_write_prefix_+schedule["prefix"]+"_s"+str(sched_no)+"_drsae_model"
+        if checkpoint_ > 0 and global_step % checkpoint_ == 0:
+          output_path = checkpoint_base_path+"/checkpoints/drsae_checkpoint_v"+version+"_s"+str(sched_no)
           save_path = saver.save(sess=sess,
               save_path=output_path,
-              global_step=global_batch_timer,
-              latest_filename=checkpoint_write_prefix_+"_latest.log")
+              global_step=global_step)
           print("Model saved in file %s"%save_path)
 
-        global_batch_timer += 1
+        global_step += 1
 
     print("Model has finished learning schedule.")
     IPython.embed()
