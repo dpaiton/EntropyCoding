@@ -35,13 +35,13 @@ epsilon_ = 1e-7
 
 # Checkpointing
 version = "1"           # Append a version number to runs
-checkpoint_ = 10000     # How often to checkpoint
-checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/output/"
+checkpoint_ = 100000    # How often to checkpoint
+checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/lca_output/"
 
 # Display & Output
 stats_display_ = 100    # How often to print updates to stdout
 display_plots_ = False  # Display plots
-save_plots_ = True      # Save plots to disc
+save_plots_ = False     # Save plots to disc
 generate_plots_ = 1000  # How often to generate plots for display or saving
 val_test_ = 100         # How often to run the validation test
 
@@ -187,7 +187,7 @@ with tf.name_scope("Optimizer") as scope:
     name="adam_minimzer") for sch_no in range(len(schedules))]
 
 ## Checkpointing & graph output
-if checkpoint_ != -1:
+if checkpoint_ > 0:
   if not os.path.exists(checkpoint_base_path+"/checkpoints"):
     os.makedirs(checkpoint_base_path+"/checkpoints")
   saver = tf.train.Saver()
@@ -223,20 +223,21 @@ with tf.Session() as sess:
       num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
 
-      for trial in range(num_batches_):
+      for step in range(num_batches_):
+        if step == 0 and sched_no == 0:
+          tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
+            "lca_gradient_graph_v"+version+".pb", as_text=False)
+
+        ## Load in data
         batch = dataset.train.next_batch(batch_)
         input_image = hf.normalize_image(batch[0]).T
         input_label = batch[1].T
 
-        if trial == 0 and sched_no == 0:
-          tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
-            "lca_gradient_graph_v"+version+".pb", as_text=False)
-
         ## Normalize weights
         normalize_weights.run()
 
-        ## Converge network
-        clear_u.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
+        ## Perform inference
+        clear_u.run({s:input_image})
         for t in range(num_steps_):
           step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
 
@@ -249,11 +250,11 @@ with tf.Session() as sess:
           gamma:gamma_})
 
         ## Print statistics about run to stdout
-        if global_step % stats_display_ == 0 and stats_display_ != 0:
+        if global_step % stats_display_ == 0 and stats_display_ > 0:
           sparsity = 100 * np.count_nonzero(T(u, lamb, thresh_).eval({lamb:lambda_})) / (m_ * batch_)
           train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
           print("\nGlobal batch index is %g"%global_step)
-          print("Finished trial %g out of %g, max val of u is %g, num active of a was %g percent"%(trial+1,
+          print("Finished step %g out of %g, max val of u is %g, num active of a was %g percent"%(step+1,
             num_batches_, u.eval().max(), sparsity))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
@@ -263,35 +264,35 @@ with tf.Session() as sess:
           print("\ttrain accuracy:\t\t%g"%(train_accuracy))
 
         ## Create plots for visualizing network
-        if global_step % generate_plots_ == 0 and generate_plots_ != -1:
+        if global_step % generate_plots_ == 0 and generate_plots_ > 0:
           #TODO: plot weight gradients
           if display_plots_:
             w_prev_fig = hf.display_data_tiled(w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Classification matrix at trial number "+str(global_step), prev_fig=w_prev_fig)
+              title="Classification matrix at step number "+str(global_step), prev_fig=w_prev_fig)
             recon_prev_fig = hf.display_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Reconstructions in trial "+str(global_step), prev_fig=recon_prev_fig)
+              title="Reconstructions in step "+str(global_step), prev_fig=recon_prev_fig)
             phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Dictionary for trial "+str(global_step), prev_fig=phi_prev_fig)
+              title="Dictionary for step "+str(global_step), prev_fig=phi_prev_fig)
           if save_plots_:
             plot_out_dir = checkpoint_base_path+"/vis/"
             if not os.path.exists(plot_out_dir):
               os.makedirs(plot_out_dir)
             w_status = hf.save_data_tiled(
               w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Classification matrix at trial number "+str(global_step),
+              title="Classification matrix at step number "+str(global_step),
               save_filename=plot_out_dir+"class_tr-"+str(global_step).zfill(5)+".ps")
             s_status = hf.save_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Reconstructions in trial "+str(global_step),
+              title="Reconstructions in step "+str(global_step),
               save_filename=plot_out_dir+"recon_tr-"+str(global_step).zfill(5)+".ps")
             phi_status = hf.save_data_tiled(
               tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-              title="Dictionary for trial "+str(global_step),
+              title="Dictionary for step "+str(global_step),
               save_filename=plot_out_dir+"phi_tr-"+str(global_step).zfill(5)+".ps")
 
         ## Test network on validation dataset
-        if global_step % val_test_ == 0 and val_test_ != -1:
+        if global_step % val_test_ == 0 and val_test_ > 0:
           val_image = hf.normalize_image(dataset.validation.images).T
           val_label = dataset.validation.labels.T
           with tf.Session() as temp_sess:
@@ -302,13 +303,16 @@ with tf.Session() as sess:
           print("\t---validation accuracy: %g"%(val_accuracy))
 
         ## Write checkpoint to disc
-        if global_step % checkpoint_ == 0 and checkpoint_ != -1:
-          saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version, global_step=global_step)
+        if global_step % checkpoint_ == 0 and checkpoint_ > 0:
+          output_path = checkpoint_base_path+\
+            "/checkpoints/lca_checkpoint_v"+version+"_s"+str(sched_no).zfill(len(schedules))
+          save_path = saver.save(sess, save_path=output_path, global_step=global_step)
+          print("\tModel saved in file %s"%save_path)
 
         global_step += 1
 
     ## Write final checkpoint regardless of specified interval
-    if checkpoint_ != -1:
+    if checkpoint_ > 0:
       saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version+"_FINAL", global_step=global_step)
 
     with tf.Session() as temp_sess:
