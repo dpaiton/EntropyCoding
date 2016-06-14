@@ -15,10 +15,12 @@ from tensorflow.examples.tutorials.mnist import input_data
 import drsae_schedule as scheduler
 
 ## User-defined parameters
+# Dimensions
 m_ = 784               # Number of pixels
 n_ = 400               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
+
 train_display_ = 20    # How often to update training stats outputs
 val_display_ = 50      # How often to update validation stats outputs
 display_plots_ = False # If True, plots will display on train_display_ intervals
@@ -27,9 +29,9 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 ## Checkpointing
 # Writing
 checkpoint_ = 1000    # How often to checkpoint weights. -1 for no checkpointing
-#TODO: setup versioning in graph_def
 checkpoint_write_prefix_ = "v0"
 checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/output/"
+
 # Reading
 load_checkpoint_ = False
 global_batch_index_ = 20000
@@ -141,7 +143,7 @@ beta_2_ = 0.999
 epsilon_ = 1e-7
 train_steps = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
   name="adam_update").minimize(total_loss,
-  var_list=[E, D, S, b, C]) for sch in range(len(schedules))]
+  var_list=[E, D, S, b, C], name="adam_minimizer") for sch_no in range(len(schedules))]
 
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
@@ -202,6 +204,7 @@ with tf.Session() as sess:
       for batch_idx in range(num_batches_):
         ## Write graph to text file
         if batch_idx == 0 and sched_no == 0:
+          #TODO: setup versioning in graph_def
           tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
             "drsae_graph.pb", False)
           
@@ -240,18 +243,18 @@ with tf.Session() as sess:
               title="Bias at trial number "+str(global_batch_timer)+"\nEach pixel represents the bias for a neuron",
               prev_fig=b_prev_fig)
             s_prev_fig = hf.display_data_tiled(S.eval(),
-              title="Explaining-away matrix at trial number "+str(batch_idx), prev_fig=s_prev_fig)
+              title="Explaining-away matrix at trial number "+str(global_batch_timer), prev_fig=s_prev_fig)
             d_prev_fig = hf.display_data_tiled(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Decoding matrix at trial number "+str(batch_idx), prev_fig=d_prev_fig)
+              title="Decoding matrix at trial number "+str(global_batch_timer), prev_fig=d_prev_fig)
             e_prev_fig = hf.display_data_tiled(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Encoding matrix at trial number "+str(batch_idx), prev_fig=e_prev_fig)
+              title="Encoding matrix at trial number "+str(global_batch_timer), prev_fig=e_prev_fig)
             recon_prev_fig = hf.display_data_tiled(
               tf.transpose(x_).eval({x:input_image}).reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-              title="Reconstructions for trial number "+str(batch_idx), prev_fig=recon_prev_fig)
+              title="Reconstructions for trial number "+str(global_batch_timer), prev_fig=recon_prev_fig)
 
           perc_active = 100*np.count_nonzero(z.eval())/np.float32(np.size(z.eval()))
           print("\nGlobal iteration number is %g"%global_batch_timer)
-          print("\tCompleted batch number %g out of %g in current schedule"%(batch_idx, num_batches_))
+          print("\tCompleted batch number %g out of %g in current schedule"%(global_batch_timer, num_batches_))
           print("\tpercent active:\t\t%g"%(perc_active))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({x:input_image})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({x:input_image, lamb:lambda_})))
