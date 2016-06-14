@@ -5,11 +5,11 @@ import tensorflow as tf
 class checkpoint_session:
   def __init__(self, params):
     if not tf.gfile.Exists(params["input_graph"]):
-      print("Input graph file '" + input_graph + "' does not exist!")
+      print("Input graph file '" + params["input_graph"] + "' does not exist!")
       return -1
 
     if not tf.gfile.Exists(params["input_saver"]):
-      print("Input saver file '" + input_saver + "' does not exist!")
+      print("Input saver file '" + params["input_saver"] + "' does not exist!")
       return -1
 
     if not tf.gfile.Glob(params["input_checkpoint"]):
