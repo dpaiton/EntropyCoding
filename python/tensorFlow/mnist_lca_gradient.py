@@ -39,14 +39,14 @@ checkpoint_ = 10000     # How often to checkpoint
 checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/output/"
 
 # Display & Output
-stats_display_ = 100    # How often to print updates to stdout
+stats_display_ = 10     # How often to print updates to stdout
 display_plots_ = False  # Display plots
 save_plots_ = True      # Save plots to disc
 generate_plots_ = 100   # How often to generate plots for display or saving
-val_test_ = 500         # How often to run the validation test
+val_test_ = 50          # How often to run the validation test
 
 # Other
-device_ = "/gpu:0"
+device_ = "/cpu:0"
 tf.set_random_seed(1234567890)
 eps = 1e-12
 
@@ -206,6 +206,12 @@ if display_plots_:
 with tf.Session() as sess:
   with tf.device(device_):
     global_batch_timer = 0
+
+    ## Run session, passing empty arrays to set up network size
+    sess.run(init_op,
+      feed_dict={s:np.zeros((n_, batch_), dtype=np.float32),
+      y:np.zeros((l_, batch_), dtype=np.float32)})
+
     for sched_no, schedule in enumerate(schedules):
       print("\n-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       print("Beginning schedule:")
@@ -216,11 +222,6 @@ with tf.Session() as sess:
       learning_rate_ = schedule["learning_rate"] # Learning rate for SGD
       num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
-
-      ## Run session, passing empty arrays to set up network size
-      sess.run(init_op,
-        feed_dict={s:np.zeros((n_, batch_), dtype=np.float32),
-        y:np.zeros((l_, batch_), dtype=np.float32)})
 
       for trial in range(num_batches_):
         batch = dataset.train.next_batch(batch_)
