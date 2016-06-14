@@ -13,7 +13,7 @@ class checkpoint_session:
       return -1
 
     if not tf.gfile.Glob(params["input_checkpoint"]):
-      print("Input checkpoint '" + input_checkpoint + "' doesn't exist!")
+      print("Input checkpoint '" + params["input_checkpoint"] + "' doesn't exist!")
       return -1
 
     if params["output_graph"] == "":
