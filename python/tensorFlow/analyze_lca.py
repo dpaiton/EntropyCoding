@@ -40,14 +40,14 @@ def main(args):
 
     ## Generate plots
     phi_prev_fig = hf.save_data_tiled(phi_eval.reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-      title="Layer 1 dictionary", save_filename=args["out_path"]+"LCA_Phi-"+args["chkpt_iter"]+".ps")
+      title="Layer 1 dictionary", save_filename=args["out_path"]+"LCA_Phi_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".ps")
 
     w_prev_fig = hf.save_data_tiled(W_eval.reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
-      title="Classification matrix", save_filename=args["out_path"]+"LCA_W-"+args["chkpt_iter"]+".ps")
+      title="Classification matrix", save_filename=args["out_path"]+"LCA_W_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".ps")
 
     recon_prev_fig = hf.save_data_tiled(
       recon_eval.reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
-      title="Reconstructions", save_filename=args["out_path"]+"LCA_Recon-"+args["chkpt_iter"]+".ps")
+      title="Reconstructions", save_filename=args["out_path"]+"LCA_Recon_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".ps")
 
     ## Setup data for testing
     dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
@@ -69,25 +69,27 @@ def main(args):
     print("test accuracy: %g"%(test_accuracy))
 
 if __name__ == "__main__":
-  chk_dir = os.path.expanduser('~')+"/Work/Projects/output/checkpoints/"
+  chk_dir = os.path.expanduser('~')+"/Work/Projects/lca_output/checkpoints/"
 
   args = dict()
 
   # Checkpoint loading
   args["checkpoint_dir"] = chk_dir
+  # Checkpoint iteartion number for loading
+  args["chkpt_iter"] = "60000"
+  # Checkpoint version number
+  args["chkpt_ver"] = "1"
   # TF GraphDef file to load
-  args["input_graph"] = chk_dir+"/lca_gradient_graph_v0.pb"
+  args["input_graph"] = chk_dir+"/lca_gradient_graph_v"+args["chkpt_ver"]+".pb"
   # TF saver file to load
   args["input_saver"] = chk_dir+"/saver.def"
-  # Checkpoint iteartion number for loading
-  args["chkpt_iter"] = "30002"
   # TF variables (checkpoint made with saver.save()) file to load
-  args["input_checkpoint"] = chk_dir+"/lca_checkpoint_v0-"+args["chkpt_iter"]
+  args["input_checkpoint"] = chk_dir+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]
   # TF GraphDef save name
-  args["output_graph"] = chk_dir+"/lca_checkpoint_v0-"+args["chkpt_iter"]+".frozen"
+  args["output_graph"] = chk_dir+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".frozen"
 
   # Path for analysis outputs
-  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/analysis/v0_"
+  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/lca_analysis/v"+args["chkpt_ver"]+"_"
 
   # Other arguments
   args["list_nodes"] = False
