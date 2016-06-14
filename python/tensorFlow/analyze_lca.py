@@ -39,10 +39,6 @@ def main(args):
     (batch_, n_) = recon_eval.shape
 
     ## Generate plots
-    phi_prev_fig = None
-    w_prev_fig = None
-    recon_prev_fig = None
-
     phi_prev_fig = hf.save_data_tiled(phi_eval.reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
       title="Layer 1 dictionary", save_filename=args["out_path"]+"LCA_Phi-"+args["chkpt_iter"]+".ps")
 
