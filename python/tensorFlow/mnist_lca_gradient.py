@@ -76,8 +76,6 @@ def T(u, lamb, thresh_type="soft"):
   Hard threshold function
   T(u) = 0 for u <  lambda
          u for u >= lambda
-
-  TODO: Define as in eq 3.5 of Rozell et al. 2008 for generality
   """
   # tf.select(condition, a, e) generates a new variable with subsets of a and e, based on condition
   # select from a if condition is true; select from e if condition is false
@@ -138,7 +136,6 @@ with tf.name_scope("output") as scope:
   with tf.name_scope("image_estimate"):
     s_ = compute_recon(phi, T(u, lamb, thresh_type=thresh_))
   with tf.name_scope("label_estimate"):
-    ## TODO: Test w/ and w/out normalization
     #y_ = tf.nn.softmax(tf.matmul(w, tf.nn.l2_normalize(T(u, lamb, thresh_type=thresh_),
     #  dim=0, epsilon=1e-12, name="col_l2_norm"), name="classify"), name="softmax")
     y_ = tf.nn.softmax(tf.matmul(w, T(u, lamb, thresh_type=thresh_),
@@ -265,7 +262,6 @@ with tf.Session() as sess:
 
         ## Create plots for visualizing network
         if global_step % generate_plots_ == 0 and generate_plots_ > 0:
-          #TODO: plot weight gradients
           if display_plots_:
             w_prev_fig = hf.display_data_tiled(w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at step number "+str(global_step), prev_fig=w_prev_fig)
@@ -281,15 +277,15 @@ with tf.Session() as sess:
             w_status = hf.save_data_tiled(
               w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at step number "+str(global_step),
-              save_filename=plot_out_dir+"class_tr-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"class_v"+version+"-"+str(global_step).zfill(5)+".ps")
             s_status = hf.save_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Reconstructions in step "+str(global_step),
-              save_filename=plot_out_dir+"recon_tr-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"recon_v"+version+"-"+str(global_step).zfill(5)+".ps")
             phi_status = hf.save_data_tiled(
               tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Dictionary for step "+str(global_step),
-              save_filename=plot_out_dir+"phi_tr-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"phi_v"+version+"-"+str(global_step).zfill(5)+".ps")
 
         ## Test network on validation dataset
         if global_step % val_test_ == 0 and val_test_ > 0:
@@ -316,10 +312,12 @@ with tf.Session() as sess:
       saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version+"_FINAL", global_step=global_step)
 
     with tf.Session() as temp_sess:
-      temp_sess.run(init_op, feed_dict={s:dataset.test.images.T, y:dataset.test.labels.T})
+      test_images = dataset.test.images.T
+      test_labels = dataset.test.labels.T
+      temp_sess.run(init_op, feed_dict={s:test_images, y:test_labels})
       for t in range(num_steps_):
-        temp_sess.run(step_lca, feed_dict={s:dataset.test.images.T, y:dataset.test.labels.T, eta:dt_/tau_, lamb:lambda_, gamma:0})
-      test_accuracy = temp_sess.run(accuracy, feed_dict={s:dataset.test.images.T, y:dataset.test.images.T, lamb:lambda_})
+        temp_sess.run(step_lca, feed_dict={s:test_images, y:test_labels, eta:dt_/tau_, lamb:lambda_, gamma:0})
+      test_accuracy = temp_sess.run(accuracy, feed_dict={s:test_images, y:test_labels, lamb:lambda_})
       print("Final accuracy: %g"%test_accuracy)
 
     IPython.embed()
