@@ -280,15 +280,15 @@ with tf.Session() as sess:
             w_status = hf.save_data_tiled(
               w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at trial number "+str(global_batch_timer),
-              save_filename=plot_out_dir+"class_tr"+str(global_batch_timer)+".ps")
+              save_filename=plot_out_dir+"class_tr-"+str(global_batch_timer).zfill(5)+".ps")
             s_status = hf.save_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Reconstructions in trial "+str(global_batch_timer),
-              save_filename=plot_out_dir+"recon_tr"+str(global_batch_timer)+".ps")
+              save_filename=plot_out_dir+"recon_tr-"+str(global_batch_timer).zfill(5)+".ps")
             phi_status = hf.save_data_tiled(
               tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Dictionary for trial "+str(global_batch_timer),
-              save_filename=plot_out_dir+"phi_tr"+str(global_batch_timer)+".ps")
+              save_filename=plot_out_dir+"phi_tr-"+str(global_batch_timer).zfill(5)+".ps")
 
         ## Test network on validation dataset
         if global_batch_timer % val_test_ == 0 and val_test_ != -1:
