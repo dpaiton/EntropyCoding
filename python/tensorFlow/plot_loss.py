@@ -40,16 +40,22 @@ def get_log_outputs(log_text):
     "train_accuracy":train_accuracy, "val_accuracy":val_accuracy}
 
 ## Set config
-log_base_path = os.path.expanduser('~')+"/Work/Projects/output/logfiles/"
-out_base_path = os.path.expanduser('~')+"/Work/Projects/analysis/"
+model_name = "lca"
 model_version = "0"
+
+log_base_path = os.path.expanduser('~')+"/Work/Projects/"+model_name+"_output/logfiles/"
+out_base_path = os.path.expanduser('~')+"/Work/Projects/"+model_name+"_analysis/"
 log_file = log_base_path+"v"+model_version+"_out.log"
+
+## Make paths
+if not os.path.exists(out_base_path):
+  os.makedirs(out_base_path)
 
 ## Get data
 stats = get_log_outputs(load_file(log_file))
 
 ## Plot stats
-save_filename = out_base_path+"model_loss_v"+model_version+".ps"
+save_filename = out_base_path+model_name+"_loss_v"+model_version+".ps"
 
 fig_no, sub_axes = plt.subplots(4)
 axis_image = [None]*4
