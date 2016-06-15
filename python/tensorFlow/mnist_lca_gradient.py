@@ -35,9 +35,9 @@ checkpoint_ = 10000     # How often to checkpoint
 checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/lca_output/"
 
 # Display & Output
-stats_display_ = 100    # How often to print updates to stdout
-val_test_ = 500         # How often to run the validation test
-generate_plots_ = 1000  # How often to generate plots for display or saving
+stats_display_ = 500    # How often to print updates to stdout
+val_test_ = 5000        # How often to run the validation test
+generate_plots_ = 5000  # How often to generate plots for display or saving
 display_plots_ = False  # Display plots
 save_plots_ = True      # Save plots to disc
 

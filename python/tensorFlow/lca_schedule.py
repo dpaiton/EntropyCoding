@@ -28,15 +28,15 @@ class schedule(object):
       {"prefix":"both",
       "lambda":0.1,
       "gamma":1.0,
-      "psi":1.0,
+      "psi":0.0,
       "learning_rate":0.001,
       "num_steps":20,
-      "num_batches":20000},
+      "num_batches":10000},
     \
       {"prefix":"both",
       "lambda":0.1,
       "gamma":1.0,
       "psi":1.0,
-      "learning_rate":0.0001,
+      "learning_rate":0.001,
       "num_steps":20,
       "num_batches":20000}]
