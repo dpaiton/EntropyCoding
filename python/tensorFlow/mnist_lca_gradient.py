@@ -1,7 +1,3 @@
-import matplotlib
-# Force matplotlib to not use any Xwindows backend
-matplotlib.use('Agg')
-
 import os
 import numpy as np
 import helper_functions as hf
@@ -40,10 +36,10 @@ checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tenso
 
 # Display & Output
 stats_display_ = 100    # How often to print updates to stdout
-display_plots_ = False  # Display plots
-save_plots_ = False     # Save plots to disc
+val_test_ = 500         # How often to run the validation test
 generate_plots_ = 1000  # How often to generate plots for display or saving
-val_test_ = 100         # How often to run the validation test
+display_plots_ = False  # Display plots
+save_plots_ = True      # Save plots to disc
 
 # Other
 device_ = "/cpu:0"
@@ -106,6 +102,7 @@ with tf.name_scope("parameters") as scope:
   eta = tf.placeholder(tf.float32, shape=(), name="LCA_update_rate")       # Placeholder for LCA update rate (dt/tau)
   lamb = tf.placeholder(tf.float32, shape=(), name="sparsity_tradeoff")    # Placeholder for sparsity loss tradeoff
   gamma = tf.placeholder(tf.float32, shape=(), name="supervised_tradeoff") # Placeholder for supervised loss tradeoff
+  psi = tf.placeholder(tf.float32, shape=(), name="feedback_strength")     # Placeholder for feedback strength
   lr = tf.placeholder(tf.float32, shape=(), name="weight_learning_rate")   # Placeholder for Phi update rule
 
 ## Initialize membrane potential
@@ -145,7 +142,7 @@ with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
   du = ((1 - eta) * u + eta * (b(phi, s) -
     tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) -
-    gamma * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
+    psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
 
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
@@ -216,6 +213,7 @@ with tf.Session() as sess:
       print("-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       lambda_ = schedule["lambda"]               # Sparsity tradeoff
       gamma_ = schedule["gamma"]                 # Supervised loss tradeoff
+      psi_ = schedule["psi"]
       learning_rate_ = schedule["learning_rate"] # Learning rate for SGD
       num_steps_ = schedule["num_steps"]         # Number of time steps for enoding
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
@@ -236,7 +234,7 @@ with tf.Session() as sess:
         ## Perform inference
         clear_u.run({s:input_image})
         for t in range(num_steps_):
-          step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_})
+          step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_, psi:psi_})
 
         ## Run update method
         train_weights[sched_no].run({\
@@ -294,7 +292,7 @@ with tf.Session() as sess:
           with tf.Session() as temp_sess:
             temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
             for t in range(num_steps_):
-              temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:dt_/tau_, lamb:lambda_, gamma:0})
+              temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_, psi:0})
             val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
           print("\t---validation accuracy: %g"%(val_accuracy))
 
@@ -316,8 +314,8 @@ with tf.Session() as sess:
       test_labels = dataset.test.labels.T
       temp_sess.run(init_op, feed_dict={s:test_images, y:test_labels})
       for t in range(num_steps_):
-        temp_sess.run(step_lca, feed_dict={s:test_images, y:test_labels, eta:dt_/tau_, lamb:lambda_, gamma:0})
-      test_accuracy = temp_sess.run(accuracy, feed_dict={s:test_images, y:test_labels, lamb:lambda_})
+        temp_sess.run(step_lca, feed_dict={s:test_images, y:test_labels, eta:dt_/tau_, lamb:0.1, gamma:1.0, psi:0})
+      test_accuracy = temp_sess.run(accuracy, feed_dict={s:test_images, y:test_labels, lamb:0.1})
       print("Final accuracy: %g"%test_accuracy)
 
     IPython.embed()
