@@ -34,8 +34,8 @@ beta_2_ = 0.999
 epsilon_ = 1e-7
 
 # Checkpointing
-version = "1"           # Append a version number to runs
-checkpoint_ = 100000    # How often to checkpoint
+version = "3"           # Append a version number to runs
+checkpoint_ = 10000     # How often to checkpoint
 checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/lca_output/"
 
 # Display & Output
