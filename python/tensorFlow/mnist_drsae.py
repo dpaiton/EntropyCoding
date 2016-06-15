@@ -21,16 +21,16 @@ n_ = 400               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
 
-stats_display_ = 100   # How often to update training stats outputs
-val_display_ = 1000    # How often to update validation stats outputs
-generate_plots_ = 1000 # How often to generate plots for display or saving
+stats_display_ = 500   # How often to update training stats outputs
+val_display_ = 5000    # How often to update validation stats outputs
+generate_plots_ = 5000 # How often to generate plots for display or saving
 display_plots_ = False # If True, plots will display on stats_display_ intervals
 save_plots_ = True     # Save plots to disc
 device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
 # Writing
-checkpoint_ = 1000    # How often to checkpoint weights. -1 for no checkpointing
+checkpoint_ = 10000   # How often to checkpoint weights. -1 for no checkpointing
 version = "0"
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/drsae_output/"
 

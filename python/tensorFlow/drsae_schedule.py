@@ -30,22 +30,15 @@ class schedule(object):
             "num_batches":20000},
         \
             {"prefix":"",
-            "lambda":0.01,
+            "lambda":0.1,
             "gamma":0.01,
             "learning_rate":0.001,
             "num_steps":20,
             "num_batches":10000},
         \
             {"prefix":"",
-            "lambda":0.01,
+            "lambda":0.1,
             "gamma":0.1,
             "learning_rate":0.001,
             "num_steps":20,
-            "num_batches":20000},
-        \
-            {"prefix":"",
-            "lambda":0.01,
-            "gamma":0.1,
-            "learning_rate":0.0001,
-            "num_steps":20,
-            "num_batches":10000}]
+            "num_batches":30000}]
