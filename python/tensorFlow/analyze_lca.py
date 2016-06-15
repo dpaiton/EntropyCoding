@@ -69,24 +69,22 @@ def main(args):
     print("test accuracy: %g"%(test_accuracy))
 
 if __name__ == "__main__":
-  chk_dir = os.path.expanduser('~')+"/Work/Projects/lca_output/checkpoints/"
-
   args = dict()
 
   # Checkpoint loading
-  args["checkpoint_dir"] = chk_dir
+  args["chkpt_dir"] = os.path.expanduser('~')+"/Work/Projects/lca_output/checkpoints/"
   # Checkpoint iteartion number for loading
-  args["chkpt_iter"] = "60000"
+  args["chkpt_iter"] = "60004"
   # Checkpoint version number
-  args["chkpt_ver"] = "1"
+  args["chkpt_ver"] = "2"
   # TF GraphDef file to load
-  args["input_graph"] = chk_dir+"/lca_gradient_graph_v"+args["chkpt_ver"]+".pb"
+  args["input_graph"] = args["chkpt_dir"]+"/lca_gradient_graph_v"+args["chkpt_ver"]+".pb"
   # TF saver file to load
-  args["input_saver"] = chk_dir+"/saver.def"
+  args["input_saver"] = args["chkpt_dir"]+"/lca_gradient_saver_v"+args["chkpt_ver"]+".def"
   # TF variables (checkpoint made with saver.save()) file to load
-  args["input_checkpoint"] = chk_dir+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]
+  args["input_checkpoint"] = args["chkpt_dir"]+"/lca_checkpoint_v"+args["chkpt_ver"]+"_FINAL-"+args["chkpt_iter"]
   # TF GraphDef save name
-  args["output_graph"] = chk_dir+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".frozen"
+  args["output_graph"] = args["chkpt_dir"]+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".frozen"
 
   # Path for analysis outputs
   args["out_path"] = os.path.expanduser('~')+"/Work/Projects/lca_analysis/v"+args["chkpt_ver"]+"_"

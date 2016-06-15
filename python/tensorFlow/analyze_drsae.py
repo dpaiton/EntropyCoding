@@ -96,26 +96,26 @@ def main(args):
     print("test accuracy: %g"%(test_accuracy))
 
 if __name__ == "__main__":
-  chk_dir = os.path.expanduser('~')+"/Work/Projects/drsae_output/checkpoints/"
-
   args = dict()
 
   # Checkpoint loading
-  args["checkpoint_dir"] = chk_dir
-  # TF GraphDef file to load
-  args["input_graph"] = chk_dir+"/drsae_graph_v0.pb"
-  # TF saver file to load
-  args["input_saver"] = chk_dir+"/drsae_saver_v0.def"
+  args["chkpt_dir"] = os.path.expanduser('~')+"/Work/Projects/drsae_output/checkpoints/"
   # Checkpoint iteartion number for loading
-  args["chkpt_iter"] = "1000"
+  args["chkpt_iter"] = "65000"
+  # Checkpoint version number
+  args["chkpt_ver"] = "0"
+  # Schedule number
+  args["sched_num"] = "5"
+  # TF GraphDef file to load
+  args["input_graph"] = args["chkpt_dir"]+"/drsae_graph_v"+args["chkpt_ver"]+".pb"
+  # TF saver file to load
+  args["input_saver"] = args["chkpt_dir"]+"/drsae_saver_v"+args["chkpt_ver"]+".def"
   # TF variables (checkpoint made with saver.save()) file to load
-  args["input_checkpoint"] = chk_dir+"/drsae_checkpoint_v0_s1-"+args["chkpt_iter"]
+  args["input_checkpoint"] = args["chkpt_dir"]+"/drsae_checkpoint_v"+args["chkpt_ver"]+"_s"+args["sched_num"]+"-"+args["chkpt_iter"]
   # TF GraphDef save name
-  args["output_graph"] = chk_dir+"/drsae_checkpoint_v0_s1-"+args["chkpt_iter"]+".frozen"
-
+  args["output_graph"] = args["chkpt_dir"]+"/drsae_checkpoint_v"+args["chkpt_ver"]+"_s"+args["sched_num"]+"-"+args["chkpt_iter"]+".frozen"
   # Path for analysis outputs
-  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/drsae_analysis/v0_"
-
+  args["out_path"] = os.path.expanduser('~')+"/Work/Projects/drsae_analysis/v"+args["chkpt_ver"]+"_"
   # Other arguments
   args["list_nodes"] = False
 
