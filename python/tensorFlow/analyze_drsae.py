@@ -101,11 +101,11 @@ if __name__ == "__main__":
   # Checkpoint loading
   args["chkpt_dir"] = os.path.expanduser('~')+"/Work/Projects/drsae_output/checkpoints/"
   # Checkpoint iteartion number for loading
-  args["chkpt_iter"] = "65000"
+  args["chkpt_iter"] = "60000"
   # Checkpoint version number
-  args["chkpt_ver"] = "0"
+  args["chkpt_ver"] = "1"
   # Schedule number
-  args["sched_num"] = "5"
+  args["sched_num"] = "4"
   # TF GraphDef file to load
   args["input_graph"] = args["chkpt_dir"]+"/drsae_graph_v"+args["chkpt_ver"]+".pb"
   # TF saver file to load
