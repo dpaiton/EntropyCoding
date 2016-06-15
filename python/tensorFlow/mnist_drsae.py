@@ -21,9 +21,11 @@ n_ = 400               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
 
-train_display_ = 20    # How often to update training stats outputs
-val_display_ = 50      # How often to update validation stats outputs
-display_plots_ = False # If True, plots will display on train_display_ intervals
+stats_display_ = 100   # How often to update training stats outputs
+val_display_ = 1000    # How often to update validation stats outputs
+generate_plots_ = 1000 # How often to generate plots for display or saving
+display_plots_ = False # If True, plots will display on stats_display_ intervals
+save_plots_ = True     # Save plots to disc
 device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
@@ -89,9 +91,10 @@ z = tf.Variable(tf.zeros(shape=tf.pack([n_, tf.shape(x)[1]]), dtype=tf.float32, 
 
 # Discretized update rule: z(t+1) = ReLU(x * E + z(t) * S - b)
 with tf.name_scope("update_z") as scope:
-  zT = tf.nn.relu(tf.matmul(E, x, name="encoding_transform") +\
-    tf.matmul(S, z, name="explaining_away") -\
-    tf.matmul(b, tf.ones(shape=tf.pack([1, tf.shape(z)[1]])), name="bias_replication"), name="update_z")
+  zT = (tf.nn.relu(tf.matmul(E, x, name="encoding_transform") +
+    tf.matmul(S, z, name="explaining_away") -
+    tf.matmul(b, tf.ones(shape=tf.pack([1, tf.shape(z)[1]])), name="bias_replication"),
+    name="update_z"))
 
   step_z = tf.group(z.assign(zT), name="do_update_z")
 
@@ -108,7 +111,7 @@ with tf.name_scope("output") as scope:
     # pushing it to winner take all
     # TODO: try with & without normalization for DrSAE++
     ## Plot softmax output for each trial
-    y_ = tf.nn.softmax(tf.matmul(C, tf.nn.l2_normalize(zT, dim=0, epsilon=eps, name="col_l2_norm"),
+    y_ = tf.nn.softmax(tf.matmul(C, tf.nn.l2_normalize(z, dim=0, epsilon=eps, name="col_l2_norm"),
       name="classify"), name="softmax") # label output
   with tf.name_scope("image_estimate"):
     ## TODO: plot average SNRdb of recons in a whole set
@@ -120,7 +123,7 @@ with tf.name_scope("loss") as scope:
     with tf.name_scope("euclidean_loss"):
       euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(x, x_), 2.0)))
     with tf.name_scope("sparse_loss"):
-      sparse_loss = lamb * tf.reduce_sum(tf.abs(zT))
+      sparse_loss = lamb * tf.reduce_sum(tf.abs(z))
     unsupervised_loss = euclidean_loss + sparse_loss
   with tf.name_scope("supervised_loss"):
     with tf.name_scope("cross_entropy_loss"):
@@ -141,7 +144,7 @@ schedules = scheduler.schedule().blocks
 ## Weight update method
 beta_1_ = 0.9
 beta_2_ = 0.999
-epsilon_ = 1e-7
+epsilon_ = 1e-8
 train_steps = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
   name="adam_update").minimize(total_loss,
   var_list=[E, D, S, b, C], name="adam_minimizer") for sch_no in range(len(schedules))]
@@ -237,7 +240,7 @@ with tf.Session() as sess:
           lamb:lambda_,
           gamma:gamma_})
 
-        if global_step % train_display_ == 0 and train_display_ > 0:
+        if global_step % stats_display_ == 0 and stats_display_ > 0:
           perc_active = 100*np.count_nonzero(z.eval())/np.float32(np.size(z.eval()))
           train_accuracy = accuracy.eval({x:input_image, y:input_label})
           print("\nGlobal batch index is %g"%global_step)
@@ -249,6 +252,7 @@ with tf.Session() as sess:
           print("\tsupervised loss:\t%g"%(supervised_loss.eval({x:input_image, y:input_label, gamma:gamma_})))
           print("\ttrain accuracy:\t\t%g"%(train_accuracy))
 
+        if global_step % generate_plots_ == 0 and generate_plots_ > 0:
           if display_plots_:
             c_prev_fig = hf.display_data_tiled(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Classification matrix at time step"+str(global_step), prev_fig=c_prev_fig)
@@ -265,6 +269,30 @@ with tf.Session() as sess:
             recon_prev_fig = hf.display_data_tiled(
               tf.transpose(x_).eval().reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Reconstructions for time step "+str(global_step).zfill(5), prev_fig=recon_prev_fig)
+
+          if save_plots_:
+            plot_out_dir = checkpoint_base_path+"/vis/"
+            if not os.path.exists(plot_out_dir):
+              os.makedirs(plot_out_dir)
+            c_status = hf.save_data_tiled(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Classification matrix at time step"+str(global_step),
+              save_filename=plot_out_dir+"class_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+            b_prev_fig = hf.save_data_tiled(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
+              title="Bias at time step "+str(global_step)+"\nEach pixel represents the bias for a neuron",
+              save_filename=plot_out_dir+"bias_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+            s_prev_fig = hf.save_data_tiled(S.eval(),
+              title="Explaining-away matrix at time step "+str(global_step).zfill(5),
+              save_filename=plot_out_dir+"S_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+            d_prev_fig = hf.save_data_tiled(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Decoding matrix at time step "+str(global_step).zfill(5),
+              save_filename=plot_out_dir+"D_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+            e_prev_fig = hf.save_data_tiled(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Encoding matrix at time step "+str(global_step).zfill(5),
+              save_filename=plot_out_dir+"E_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+            recon_prev_fig = hf.save_data_tiled(
+              tf.transpose(x_).eval().reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
+              title="Reconstructions for time step "+str(global_step).zfill(5),
+              save_filename=plot_out_dir+"recon_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
 
         if val_display_ > 0 and global_step % val_display_ == 0:
           val_image = hf.normalize_image(dataset.validation.images).T
