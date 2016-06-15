@@ -9,7 +9,6 @@ import numpy as np
 import helper_functions as hf
 import IPython
 
-
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import drsae_schedule as scheduler
@@ -22,7 +21,7 @@ l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
 
 stats_display_ = 500   # How often to update training stats outputs
-val_display_ = 5000    # How often to update validation stats outputs
+val_test_ = 5000       # How often to update validation stats outputs
 generate_plots_ = 5000 # How often to generate plots for display or saving
 display_plots_ = False # If True, plots will display on stats_display_ intervals
 save_plots_ = True     # Save plots to disc
@@ -31,7 +30,7 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 ## Checkpointing
 # Writing
 checkpoint_ = 10000   # How often to checkpoint weights. -1 for no checkpointing
-version = "0"
+version = "2"
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/drsae_output/"
 
 # Reading
@@ -294,7 +293,7 @@ with tf.Session() as sess:
               title="Reconstructions for time step "+str(global_step).zfill(5),
               save_filename=plot_out_dir+"recon_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
 
-        if val_display_ > 0 and global_step % val_display_ == 0:
+        if global_step % val_test_ == 0 and val_test_ > 0:
           val_image = hf.normalize_image(dataset.validation.images).T
           val_label = dataset.validation.labels.T
           with tf.Session() as temp_sess:
@@ -302,7 +301,7 @@ with tf.Session() as sess:
             for t in range(num_steps_):
               temp_sess.run(step_z, feed_dict={x:val_image})
             val_accuracy = temp_sess.run(accuracy, feed_dict={x:val_image, y:val_label})
-          print("\t---validation accuracy: %g"%(val_accuracy))
+            print("\t---validation accuracy: %g"%(val_accuracy))
 
         if checkpoint_ > 0 and global_step % checkpoint_ == 0:
           output_path = checkpoint_base_path+"/checkpoints/drsae_checkpoint_v"+version+"_s"+str(sched_no)

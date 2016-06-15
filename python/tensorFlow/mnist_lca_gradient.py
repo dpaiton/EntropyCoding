@@ -30,9 +30,9 @@ beta_2_ = 0.999
 epsilon_ = 1e-7
 
 # Checkpointing
-version = "3"           # Append a version number to runs
+version = "4"           # Append a version number to runs
 checkpoint_ = 10000     # How often to checkpoint
-checkpoint_base_path = os.path.expanduser('~')+"/Work/EntropyCoding/python/tensorFlow/lca_output/"
+checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/lca_output/"
 
 # Display & Output
 stats_display_ = 500    # How often to print updates to stdout
@@ -294,12 +294,12 @@ with tf.Session() as sess:
             for t in range(num_steps_):
               temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_, psi:0})
             val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
-          print("\t---validation accuracy: %g"%(val_accuracy))
+            print("\t---validation accuracy: %g"%(val_accuracy))
 
         ## Write checkpoint to disc
         if global_step % checkpoint_ == 0 and checkpoint_ > 0:
           output_path = checkpoint_base_path+\
-            "/checkpoints/lca_checkpoint_v"+version+"_s"+str(sched_no).zfill(len(schedules))
+            "/checkpoints/lca_checkpoint_v"+version+"_s"+str(sched_no)
           save_path = saver.save(sess, save_path=output_path, global_step=global_step)
           print("\tModel saved in file %s"%save_path)
 
@@ -307,7 +307,8 @@ with tf.Session() as sess:
 
     ## Write final checkpoint regardless of specified interval
     if checkpoint_ > 0:
-      saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version+"_FINAL", global_step=global_step)
+      save_path = saver.save(sess, checkpoint_base_path+"/checkpoints/lca_checkpoint_v"+version+"_FINAL", global_step=global_step)
+      print("\tFinal version of model saved in file %s"%save_path)
 
     with tf.Session() as temp_sess:
       test_images = dataset.test.images.T
