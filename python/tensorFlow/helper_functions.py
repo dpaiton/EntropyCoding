@@ -10,7 +10,10 @@ Inputs:
   data : np.ndarray
 """
 def normalize_data(data):
-  return (data / np.max(np.abs(data))).squeeze()
+  norm_data = data.squeeze()
+  if np.max(np.abs(data)) > 0:
+    norm_data = (data / np.max(np.abs(data))).squeeze()
+  return norm_data
 
 """
 Pad data with ones for visualization
