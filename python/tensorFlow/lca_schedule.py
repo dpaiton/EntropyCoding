@@ -19,7 +19,7 @@ class schedule(object):
     \
       {"prefix":"supervised",
       "lambda":0.5,
-      "gamma":0.1,
+      "gamma":1.0,
       "psi":0.0,
       "learning_rate":0.001,
       "num_steps":20,
