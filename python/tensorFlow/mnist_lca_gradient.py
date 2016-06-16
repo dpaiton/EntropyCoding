@@ -15,8 +15,8 @@ l_     = 10         # number of categories
 batch_ = 60         # number of images in a batch
 
 # LCA parameters
-dt_    = 0.001      # [s] discrete time constant
-tau_   = 0.01       # [s] LCA time constant
+dt_     = 0.001      # [s] discrete time constant
+tau_    = 0.01       # [s] LCA time constant
 thresh_ = "soft"    # Type of thresholding for LCA -> can be "hard" or "soft"
 
 # ADADELTA parameters
@@ -25,19 +25,19 @@ thresh_ = "soft"    # Type of thresholding for LCA -> can be "hard" or "soft"
 #adadelta_epsilon_ = 1e-8
 
 # ADAM parameters
-beta_1_ = 0.9
-beta_2_ = 0.999
+beta_1_  = 0.9
+beta_2_  = 0.999
 epsilon_ = 1e-7
 
 # Checkpointing
-version = "4"           # Append a version number to runs
+version = "6"           # Append a version number to runs
 checkpoint_ = 10000     # How often to checkpoint
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/lca_output/"
 
 # Display & Output
-stats_display_ = 500    # How often to print updates to stdout
-val_test_ = 5000        # How often to run the validation test
-generate_plots_ = 5000  # How often to generate plots for display or saving
+stats_display_ = 100    # How often to print updates to stdout
+val_test_ = 10000       # How often to run the validation test
+generate_plots_ = 10000 # How often to generate plots for display or saving
 display_plots_ = False  # Display plots
 save_plots_ = True      # Save plots to disc
 
@@ -76,7 +76,7 @@ def T(u, lamb, thresh_type="soft"):
   # tf.select(condition, a, e) generates a new variable with subsets of a and e, based on condition
   # select from a if condition is true; select from e if condition is false
   # here I assign a to be u-lambda and e to be a tensor of zeros, this will perform thresholding function
-  if thresh_type is "soft":
+  if thresh_type == "soft":
     return tf.select(tf.greater_equal(u, lamb),
       u-lamb, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
   else:
@@ -141,8 +141,8 @@ with tf.name_scope("output") as scope:
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
   du = ((1 - eta) * u + eta * (b(phi, s) -
-    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)) -
-    psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
+    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)))) #-
+#    psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
 
   ## Operation to update the state
   step_lca = tf.group(u.assign(du), name="do_update_u")
@@ -174,11 +174,11 @@ schedules = scheduler.schedule().blocks
 with tf.name_scope("Optimizer") as scope:
   var_lists = [[phi] if sch["prefix"] == "unsupervised" else [w] if sch["prefix"] == "supervised" else [phi, w] for sch in schedules]
   #train_weights = [tf.train.adadeltaoptimizer(lr, rho_, adadelta_epsilon_,
-  #  name="adadelta_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
-  #  name="adadelta_minimzer") for sch_no in range(len(schedules))]
+  #  name="adadelta_optimizer_"+str(sch_num)).minimize(total_loss, var_list=var_lists[sch_num],
+  #  name="adadelta_minimzer_"+str(sch_num)) for sch_num in range(len(schedules))]
   train_weights = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
-    name="adam_optimizer").minimize(total_loss, var_list=var_lists[sch_no],
-    name="adam_minimzer") for sch_no in range(len(schedules))]
+    name="adam_optimizer_"+str(sch_num)).minimize(total_loss, var_list=var_lists[sch_num],
+    name="adam_minimzer_"+str(sch_num)) for sch_num in range(len(schedules))]
 
 ## Checkpointing & graph output
 if checkpoint_ > 0:
@@ -319,4 +319,4 @@ with tf.Session() as sess:
       test_accuracy = temp_sess.run(accuracy, feed_dict={s:test_images, y:test_labels, lamb:0.1})
       print("Final accuracy: %g"%test_accuracy)
 
-    IPython.embed()
+    #IPython.embed()
