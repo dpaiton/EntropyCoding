@@ -20,8 +20,8 @@ n_ = 400               # Number of hidden units
 l_ = 10                # Number of categories
 batch_ = 60            # Number of images in a batch
 
-stats_display_ = 500   # How often to update training stats outputs
-val_test_ = 5000       # How often to update validation stats outputs
+stats_display_ = 100   # How often to update training stats outputs
+val_test_ = -1         # How often to update validation stats outputs
 generate_plots_ = 5000 # How often to generate plots for display or saving
 display_plots_ = False # If True, plots will display on stats_display_ intervals
 save_plots_ = True     # Save plots to disc
@@ -29,8 +29,8 @@ device_ = "/cpu:0"     # Specify hardware; can be "/cpu:0", "/gpu:0", "/gpu:1"
 
 ## Checkpointing
 # Writing
-checkpoint_ = 10000   # How often to checkpoint weights. -1 for no checkpointing
-version = "2"
+checkpoint_ = -1      # How often to checkpoint weights. -1 for no checkpointing
+version = "3"
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/drsae_output/"
 
 # Reading
@@ -39,8 +39,13 @@ checkpoint_batch_index_ = 20000
 checkpoint_sched_no_ = 1
 checkpoint_read_version_ = "0"
 
-eps = 1e-12
+## ADAM Parameters
+beta_1_ = 0.9
+beta_2_ = 0.999
+epsilon_ = 1e-8
 
+## Other parameters
+eps = 1e-12
 tf.set_random_seed(1234567890)
 
 ## Input data
@@ -93,7 +98,7 @@ with tf.name_scope("update_z") as scope:
   zT = (tf.nn.relu(tf.matmul(E, x, name="encoding_transform") +
     tf.matmul(S, z, name="explaining_away") -
     tf.matmul(b, tf.ones(shape=tf.pack([1, tf.shape(z)[1]])), name="bias_replication"),
-    name="update_z"))
+    name="zT"))
 
   step_z = tf.group(z.assign(zT), name="do_update_z")
 
@@ -141,12 +146,9 @@ with tf.name_scope("normalize_weights") as scope:
 schedules = scheduler.schedule().blocks
 
 ## Weight update method
-beta_1_ = 0.9
-beta_2_ = 0.999
-epsilon_ = 1e-8
 train_steps = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
-  name="adam_update").minimize(total_loss,
-  var_list=[E, D, S, b, C], name="adam_minimizer") for sch_no in range(len(schedules))]
+  name="adam_update_"+str(sch_num)).minimize(total_loss,
+  var_list=[E, D, S, b, C], name="adam_minimizer_"+str(sch_num)) for sch_num in range(len(schedules))]
 
 ## Accuracy functions
 with tf.name_scope("accuracy_calculation") as scope:
@@ -312,5 +314,10 @@ with tf.Session() as sess:
 
         global_step += 1
 
+    ## Write final checkpoint regardless of specified interval
+    if checkpoint_ > 0:
+      save_path = saver.save(sess, checkpoint_base_path+"/checkpoints/drsae_checkpoint_v"+version+"_FINAL", global_step=global_step)
+      print("\tFinal version of model saved in file %s"%save_path)
+
     print("Model has finished learning schedule.")
-    IPython.embed()
+    #IPython.embed()

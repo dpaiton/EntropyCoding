@@ -174,11 +174,11 @@ schedules = scheduler.schedule().blocks
 with tf.name_scope("Optimizer") as scope:
   var_lists = [[phi] if sch["prefix"] == "unsupervised" else [w] if sch["prefix"] == "supervised" else [phi, w] for sch in schedules]
   #train_weights = [tf.train.adadeltaoptimizer(lr, rho_, adadelta_epsilon_,
-  #  name="adadelta_optimizer_"+str(sch_num)).minimize(total_loss, var_list=var_lists[sch_num],
-  #  name="adadelta_minimzer_"+str(sch_num)) for sch_num in range(len(schedules))]
+  #  name="adadelta_optimizer_"+str(sch_idx)).minimize(total_loss, var_list=var_lists[sch_idx],
+  #  name="adadelta_minimzer_"+str(sch_idx)) for sch_idx in range(len(schedules))]
   train_weights = [tf.train.AdamOptimizer(lr, beta_1_, beta_2_, epsilon_,
-    name="adam_optimizer_"+str(sch_num)).minimize(total_loss, var_list=var_lists[sch_num],
-    name="adam_minimzer_"+str(sch_num)) for sch_num in range(len(schedules))]
+    name="adam_optimizer_"+str(sch_idx)).minimize(total_loss, var_list=var_lists[sch_idx],
+    name="adam_minimzer_"+str(sch_idx)) for sch_idx in range(len(schedules))]
 
 ## Checkpointing & graph output
 if checkpoint_ > 0:
@@ -206,7 +206,7 @@ with tf.Session() as sess:
       feed_dict={s:np.zeros((n_, batch_), dtype=np.float32),
       y:np.zeros((l_, batch_), dtype=np.float32)})
 
-    for sched_no, schedule in enumerate(schedules):
+    for sch_idx, schedule in enumerate(schedules):
       print("\n-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       print("Beginning schedule:")
       print(schedule)
@@ -219,7 +219,7 @@ with tf.Session() as sess:
       num_batches_ = schedule["num_batches"]     # Number of batches to learn weights
 
       for step in range(num_batches_):
-        if step == 0 and sched_no == 0:
+        if step == 0 and sch_idx == 0:
           tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
             "lca_gradient_graph_v"+version+".pb", as_text=False)
 
@@ -237,7 +237,7 @@ with tf.Session() as sess:
           step_lca.run({s:input_image, y:input_label, eta:dt_/tau_, lamb:lambda_, gamma:gamma_, psi:psi_})
 
         ## Run update method
-        train_weights[sched_no].run({\
+        train_weights[sch_idx].run({\
           s:input_image,
           y:input_label,
           lr:learning_rate_,
@@ -299,7 +299,7 @@ with tf.Session() as sess:
         ## Write checkpoint to disc
         if global_step % checkpoint_ == 0 and checkpoint_ > 0:
           output_path = checkpoint_base_path+\
-            "/checkpoints/lca_checkpoint_v"+version+"_s"+str(sched_no)
+            "/checkpoints/lca_checkpoint_v"+version+"_s"+str(sch_idx)
           save_path = saver.save(sess, save_path=output_path, global_step=global_step)
           print("\tModel saved in file %s"%save_path)
 
