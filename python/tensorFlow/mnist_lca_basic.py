@@ -18,15 +18,16 @@ dt_     = 0.001      # [s] discrete time constant
 tau_    = 0.01       # [s] LCA time constant
 
 # Learning Schedule
-lamb_ = 0.01
+lambda_ = 1.8
 learning_rate_ = 0.001
 num_steps_ = 20
 num_batches_ = 20000
 
 # Display & Output
-version = "0"         # Append a version number to runs
-checkpoint_ = 100     # How often to checkpoint
-stats_display_ = 100  # How often to print updates to stdout
+version = "0"           # Append a version number to runs
+checkpoint_ = -1        # How often to checkpoint
+stats_display_ = 50     # How often to print updates to stdout
+generate_plots_ = 200   # How often to generate plots for display or saving
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/lca_basic_output/"
 
 # Other
@@ -45,13 +46,11 @@ with tf.name_scope("constants") as scope:
 with tf.name_scope("hyper_parameters") as scope:
   eta = tf.placeholder(tf.float32, shape=(), name="lca_update_rate")       # Placeholder for LCA update rate (dt/tau)
   lamb = tf.placeholder(tf.float32, shape=(), name="sparsity_tradeoff")    # Placeholder for sparsity loss tradeoff
-  lr = tf.placeholder(tf.float32, shape=(), name="weight_learning_rate")   # Placeholder for Phi update rule
 
 ## Initialize membrane potential
 with tf.name_scope("dynamic_variables") as scope:
   u = tf.Variable(tf.zeros(shape=tf.pack([m_, tf.shape(s)[1]]), dtype=tf.float32, name="u_init"),
     trainable=False, validate_shape=False, name="u")
-
   Tu = tf.select(tf.greater_equal(u, lamb), u-lamb, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
 
 ## Initialize weights
@@ -75,21 +74,19 @@ with tf.name_scope("loss") as scope:
     euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
     sparse_loss = lamb * tf.reduce_sum(tf.abs(Tu))
     unsupervised_loss = euclidean_loss + sparse_loss
-    #entropy_loss = psi * -tf.reduce_sum(tf.clip_by_value(y_, 1e-10, 1.0) *\
-    #  tf.log(tf.clip_by_value(y_, 1e-10, 1.0)))
   total_loss = unsupervised_loss
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
-  du = ((1 - eta) * u + eta * (tf.matmul(tf.transpose(phi), s) -
-    tf.matmul(tf.matmul(tf.transpose(phi), phi) -
-    tf.constant(np.identity(int(phi.get_shape()[1])),
-    dtype=tf.float32, name="identity_matrix"), Tu)) -
-    psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
-  #du = -tf.gradients(unsupervised_loss, Tu)[0]
+  #du = (tf.matmul(tf.transpose(phi), s) -
+  #  tf.matmul(tf.matmul(tf.transpose(phi), phi) -
+  #  tf.constant(np.identity(int(phi.get_shape()[1])),
+  #  dtype=tf.float32, name="identity_matrix"), Tu) -
+  #  u)
+  du = -tf.gradients(unsupervised_loss, Tu)[0]
 
   ## Op to update the state
-  step_lca = tf.group(u.assign_add(eta*du), name="do_update_u")
+  step_lca = tf.group(u.assign_add(eta * du), name="do_update_u")
 
   ## Op to clear u
   clear_u = tf.group(u.assign(tf.zeros(shape=tf.pack([m_, tf.shape(s)[1]]),
@@ -97,8 +94,13 @@ with tf.name_scope("update_u") as scope:
 
 ## Weight update method
 with tf.name_scope("Optimizer") as scope:
-  train_weights = tf.train.GradientDescentOptimizer(0.001,
-    name="gradient_descent_optimizer").minimize(unsupervised_loss, var_list=[phi], name="minimize")
+  beta_1_  = 0.9
+  beta_2_  = 0.999
+  epsilon_ = 1e-7
+  train_weights = tf.train.AdamOptimizer(learning_rate_, beta_1_, beta_2_, epsilon_,
+    name="adam_optimizer").minimize(total_loss, var_list=[phi], name="adam_minimzer")
+  #train_weights = tf.train.GradientDescentOptimizer(0.001,
+  #  name="gradient_descent_optimizer").minimize(unsupervised_loss, var_list=[phi], name="minimize")
 
 ## Checkpointing & graph output
 if checkpoint_ > 0:
@@ -122,7 +124,7 @@ with tf.Session() as sess:
       y:np.zeros((l_, batch_), dtype=np.float32)})
 
     for step in range(num_batches_):
-      if step == 0 and sch_idx == 0:
+      if step == 0:
         tf.train.write_graph(sess.graph_def, checkpoint_base_path+"/checkpoints",
           "lca_gradient_graph_v"+version+".pb", as_text=False)
 
@@ -142,22 +144,21 @@ with tf.Session() as sess:
       train_weights.run({\
         s:input_image,
         y:input_label,
-        lr:learning_rate_,
-        lamb:lambda_,
-        gamma:gamma_})
+        lamb:lambda_})
 
       ## Print statistics about run to stdout
       if global_step % stats_display_ == 0 and stats_display_ > 0:
         sparsity = 100 * np.count_nonzero(Tu.eval({lamb:lambda_})) / (m_ * batch_)
+
         print("\nGlobal batch index is %g"%global_step)
-        print("Finished step %g out of %g, max val of u is %g, num active of a was %g percent"%(step+1,
+        print("Completed step %g out of %g, max val of u is %g, num active of a was %g percent"%(step,
           num_batches_, u.eval().max(), sparsity))
         print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
         print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
         print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
 
+      if global_step % generate_plots_ == 0 and generate_plots_ > 0:
         plot_out_dir = checkpoint_base_path+"/vis/"
-
         if not os.path.exists(plot_out_dir):
           os.makedirs(plot_out_dir)
 
