@@ -4,7 +4,6 @@ import numpy as np
 import helper_functions as hf
 import matplotlib.pyplot as plt
 
-
 #TOOD: Create activation plots similar to those in Rolfe et al
 #def plot_connection_summaries(enc_w, dec_w, rec_w
 
