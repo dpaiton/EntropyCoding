@@ -277,23 +277,23 @@ with tf.Session() as sess:
               os.makedirs(plot_out_dir)
             c_status = hf.save_data_tiled(C.eval().reshape(l_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Classification matrix at time step"+str(global_step),
-              save_filename=plot_out_dir+"class_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"class_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
             b_prev_fig = hf.save_data_tiled(b.eval().reshape(int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Bias at time step "+str(global_step)+"\nEach pixel represents the bias for a neuron",
-              save_filename=plot_out_dir+"bias_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"bias_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
             s_prev_fig = hf.save_data_tiled(S.eval(),
               title="Explaining-away matrix at time step "+str(global_step).zfill(5),
-              save_filename=plot_out_dir+"S_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"S_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
             d_prev_fig = hf.save_data_tiled(tf.transpose(D).eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Decoding matrix at time step "+str(global_step).zfill(5),
-              save_filename=plot_out_dir+"D_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"D_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
             e_prev_fig = hf.save_data_tiled(E.eval().reshape(n_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Encoding matrix at time step "+str(global_step).zfill(5),
-              save_filename=plot_out_dir+"E_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"E_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
             recon_prev_fig = hf.save_data_tiled(
               tf.transpose(x_).eval().reshape(batch_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Reconstructions for time step "+str(global_step).zfill(5),
-              save_filename=plot_out_dir+"recon_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"recon_v"+version+"_s"+str(sched_no)+"-"+str(global_step).zfill(5)+".pdf")
 
         if global_step % val_test_ == 0 and val_test_ > 0:
           val_image = hf.normalize_image(dataset.validation.images).T
