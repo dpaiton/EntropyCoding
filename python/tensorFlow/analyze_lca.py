@@ -74,17 +74,18 @@ if __name__ == "__main__":
   # Checkpoint loading
   args["chkpt_dir"] = os.path.expanduser('~')+"/Work/Projects/lca_output/checkpoints/"
   # Checkpoint iteartion number for loading
-  args["chkpt_iter"] = "10000"
+  args["chkpt_iter"] = "90000"
   # Checkpoint version number
-  args["chkpt_ver"] = "3"
+  args["chkpt_ver"] = "6"
   # Schedule number
-  args["sched_num"] = "0001"
+  args["sched_num"] = "3"
   # TF GraphDef file to load
   args["input_graph"] = args["chkpt_dir"]+"/lca_gradient_graph_v"+args["chkpt_ver"]+".pb"
   # TF saver file to load
   args["input_saver"] = args["chkpt_dir"]+"/lca_gradient_saver_v"+args["chkpt_ver"]+".def"
   # TF variables (checkpoint made with saver.save()) file to load
   args["input_checkpoint"] = args["chkpt_dir"]+"/lca_checkpoint_v"+args["chkpt_ver"]+"_s"+args["sched_num"]+"-"+args["chkpt_iter"]
+  #args["input_checkpoint"] = args["chkpt_dir"]+"/lca_checkpoint_v"+args["chkpt_ver"]+"_FINAL-"+args["chkpt_iter"]
   # TF GraphDef save name
   args["output_graph"] = args["chkpt_dir"]+"/lca_checkpoint_v"+args["chkpt_ver"]+"-"+args["chkpt_iter"]+".frozen"
   # Path for analysis outputs
