@@ -18,9 +18,10 @@ dt_     = 0.001      # [s] discrete time constant
 tau_    = 0.01       # [s] LCA time constant
 
 # Learning Schedule
-lambda_ = 1.8
+#lambda_ = 1.8
+lambda_ = 0.005
 learning_rate_ = 0.001
-num_steps_ = 20
+num_steps_ = 40
 num_batches_ = 20000
 
 # Display & Output
@@ -49,9 +50,11 @@ with tf.name_scope("hyper_parameters") as scope:
 
 ## Initialize membrane potential
 with tf.name_scope("dynamic_variables") as scope:
+  # Internal state variable for sub-threshold dynamics
   u = tf.Variable(tf.zeros(shape=tf.pack([m_, tf.shape(s)[1]]), dtype=tf.float32, name="u_init"),
     trainable=False, validate_shape=False, name="u")
-  Tu = tf.select(tf.greater_equal(u, lamb), u-lamb, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
+  # Soft threshold function is applied to u to produce a = T(u)
+  Tu = tf.select(tf.greater(u, lamb), u-lamb, tf.zeros(shape=tf.shape(u), dtype=tf.float32))
 
 ## Initialize weights
 with tf.name_scope("weights") as scope:
@@ -78,12 +81,14 @@ with tf.name_scope("loss") as scope:
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
-  #du = (tf.matmul(tf.transpose(phi), s) -
-  #  tf.matmul(tf.matmul(tf.transpose(phi), phi) -
-  #  tf.constant(np.identity(int(phi.get_shape()[1])),
-  #  dtype=tf.float32, name="identity_matrix"), Tu) -
-  #  u)
-  du = -tf.gradients(unsupervised_loss, Tu)[0]
+  # du = b - u - G * T(u)
+  # du = <phi.T,s> - u - (<phi.T,phi> - I) * T(u)
+  du = (tf.matmul(tf.transpose(phi), s) -
+    tf.matmul(tf.matmul(tf.transpose(phi), phi) -
+    tf.constant(np.identity(int(phi.get_shape()[1])),
+    dtype=tf.float32, name="identity_matrix"), Tu) -
+    u)
+  du_auto = -(tf.gradients(euclidean_loss, Tu)[0] + (u - Tu))
 
   ## Op to update the state
   step_lca = tf.group(u.assign_add(eta * du), name="do_update_u")
@@ -151,7 +156,7 @@ with tf.Session() as sess:
         sparsity = 100 * np.count_nonzero(Tu.eval({lamb:lambda_})) / (m_ * batch_)
 
         print("\nGlobal batch index is %g"%global_step)
-        print("Completed step %g out of %g, max val of u is %g, num active of a was %g percent"%(step,
+        print("Completed step %g out of %g, max val of u is %g, num active of T(u) was %g percent"%(step,
           num_batches_, u.eval().max(), sparsity))
         print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
         print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
