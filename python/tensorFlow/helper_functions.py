@@ -52,6 +52,14 @@ def save_data_tiled(data, title="", save_filename=""):
   axis_image = sub_axis.imshow(data, cmap="Greys", interpolation="nearest")
   axis_image.set_clim(vmin=-1.0, vmax=1.0)
   cbar = fig_no.colorbar(axis_image)
+  sub_axis.tick_params(
+   axis="x",
+   bottom="off",
+   top="off")
+  sub_axis.tick_params(
+   axis="y",
+   left="off",
+   right="off")
   fig_no.suptitle(title, y=1.05)
   if save_filename == "":
     save_filename = "./output.ps"
@@ -80,6 +88,14 @@ def display_data_tiled(data, title="", prev_fig=None):
     axis_image = sub_axis.imshow(data, cmap="Greys", interpolation="nearest")
     axis_image.set_clim(vmin=-1.0, vmax=1.0)
     cbar = fig_no.colorbar(axis_image)
+    sub_axis.tick_params(
+     axis="x",
+     bottom="off",
+     top="off")
+    sub_axis.tick_params(
+     axis="y",
+     left="off",
+     right="off")
   else:
     (fig_no, sub_axis, axis_image) = prev_fig
     axis_image.set_data(data)
@@ -105,6 +121,14 @@ def save_data(data, title="", save_filename=""):
   fig_no, sub_axis = plt.subplots(1)
   axis_image = sub_axis.imshow(data, cmap="Greys", interpolation="nearest")
   cbar = fig_no.colorbar(axis_image)
+  sub_axis.tick_params(
+   axis="x",
+   bottom="off",
+   top="off")
+  sub_axis.tick_params(
+   axis="y",
+   left="off",
+   right="off")
   fig_no.suptitle(title, y=1.05)
   if save_filename == "":
     save_filename = "./output.ps"
@@ -128,6 +152,14 @@ def display_data(data, title="", prev_fig=None):
     fig_no, sub_axis = plt.subplots(1)
     axis_image = sub_axis.imshow(data, cmap="Greys", interpolation="nearest")
     cbar = fig_no.colorbar(axis_image)
+    sub_axis.tick_params(
+     axis="x",
+     bottom="off",
+     top="off")
+    sub_axis.tick_params(
+     axis="y",
+     left="off",
+     right="off")
   else:
     (fig_no, sub_axis, axis_image) = prev_fig
     axis_image.set_data(data)
