@@ -13,9 +13,9 @@ dt_   = 0.001       # [s] discrete time constant
 tau_  = 0.01        # [s] LCA time constant
 lr_   = 0.1         # Learning rate for weight updates (will be divided by batch_)
 batch_ = 60         # Number of images in a batch
-num_steps_ = 50     # Number of steps to run LCA
-num_trials_ = 5000  # Number of batches to learn weights
-display_ = 10       # How often to display status updates
+num_steps_ = 20     # Number of steps to run LCA
+num_trials_ = 2000  # Number of batches to learn weights
+display_ = -1       # How often to display status updates
 thresh_ = 'soft'    # Thresholding type for LCA -> can be 'hard' or 'soft'
 
 tf.set_random_seed(1234567890)
@@ -52,7 +52,7 @@ def T(u, lamb, thresh_type='soft'):
     # tf.select(condition, a, e) generates a new variable with subsets of a and e, based on condition
     # select from a if condition is true; select from e if condition is false
     # here I assign a to be u-lambda and e to be a tensor of zeros, this will perform thresholding function
-    if thresh_type is 'soft':
+    if thresh_type == 'soft':
         return tf.select(tf.greater_equal(u, lamb), u-lamb, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
     else:
         return tf.select(tf.greater_equal(u, lamb), u, tf.constant(np.zeros([int(dim) for dim in u.get_shape()]), dtype=tf.float32))
@@ -142,6 +142,8 @@ for trial in range(num_trials_):
         phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
             title='Dictionary for trial number '+str(trial), prev_fig=phi_prev_fig)
     if trial % 100 == 0:
+        if not os.path.exists('checkpoints/lca_checkpoint'):
+          os.makedirs('checkpoints/lca_checkpoint')
         saver.save(sess, 'checkpoints/lca_checkpoint', global_step=trial)
 
 IPython.embed()
