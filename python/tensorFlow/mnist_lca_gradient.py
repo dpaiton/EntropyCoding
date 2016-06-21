@@ -30,14 +30,14 @@ beta_2_  = 0.999
 epsilon_ = 1e-7
 
 # Checkpointing
-version = "6"           # Append a version number to runs
-checkpoint_ = 10000     # How often to checkpoint
+version = "7"           # Append a version number to runs
+checkpoint_ = -1        # How often to checkpoint
 checkpoint_base_path = os.path.expanduser('~')+"/Work/Projects/lca_output/"
 
 # Display & Output
-stats_display_ = 100    # How often to print updates to stdout
-val_test_ = 10000       # How often to run the validation test
-generate_plots_ = 10000 # How often to generate plots for display or saving
+stats_display_ = 50     # How often to print updates to stdout
+val_test_ = -1          # How often to run the validation test
+generate_plots_ = 100   # How often to generate plots for display or saving
 display_plots_ = False  # Display plots
 save_plots_ = True      # Save plots to disc
 
@@ -95,7 +95,7 @@ dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
 
 ## Setup constants & placeholders
 with tf.name_scope("constants") as scope:
-  s = tf.placeholder(tf.float32, shape=[n_, None], name="input_data")  # Placeholder for data
+  s = tf.placeholder(tf.float32, shape=[n_, None], name="input_data")  # Placeholder for data (column vector)
   y = tf.placeholder(tf.float32, shape=[l_, None], name="input_label") # Placeholder for ground truth
 
 with tf.name_scope("parameters") as scope:
@@ -126,7 +126,7 @@ with tf.name_scope("weights") as scope:
 
 with tf.name_scope("normalize_weights") as scope:
   norm_phi = phi.assign(tf.nn.l2_normalize(phi, dim=1, epsilon=eps, name="row_l2_norm"))
-  norm_w = w.assign(tf.nn.l2_normalize(w, dim=1, epsilon=eps, name="row_l2_norm"))
+  norm_w = w.assign(tf.nn.l2_normalize(w, dim=0, epsilon=eps, name="col_l2_norm"))
   normalize_weights = tf.group(norm_phi, norm_w, name="do_normalization")
 
 with tf.name_scope("output") as scope:
@@ -140,11 +140,15 @@ with tf.name_scope("output") as scope:
 
 with tf.name_scope("update_u") as scope:
   ## Discritized membrane update rule
-  du = ((1 - eta) * u + eta * (b(phi, s) -
-    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_)))) #-
-#    psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
+  #du = (b(phi, s) -
+  #  tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_))) #-
+  #  psi * tf.matmul(tf.transpose(w), tf.mul(y, y_))))
+
+  du = ((1-eta) * u + eta * (b(phi, s) -
+    tf.matmul(G(phi), T(u, lamb, thresh_type=thresh_))))
 
   ## Operation to update the state
+  #step_lca = tf.group(u.assign_add(eta * du), name="do_update_u")
   step_lca = tf.group(u.assign(du), name="do_update_u")
 
   ## Operation to clear u
@@ -154,6 +158,8 @@ with tf.name_scope("loss") as scope:
   with tf.name_scope("unsupervised"):
     euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
     sparse_loss = lamb * tf.reduce_sum(tf.abs(T(u, lamb, thresh_type=thresh_)))
+    #entropy_loss = psi * -tf.reduce_sum(tf.clip_by_value(y_, 1e-10, 1.0) *\
+    #  tf.log(tf.clip_by_value(y_, 1e-10, 1.0)))
     unsupervised_loss = euclidean_loss + sparse_loss
   with tf.name_scope("supervised"):
     with tf.name_scope("cross_entropy_loss"):
@@ -275,15 +281,15 @@ with tf.Session() as sess:
             w_status = hf.save_data_tiled(
               w.eval().reshape(l_, int(np.sqrt(m_)), int(np.sqrt(m_))),
               title="Classification matrix at step number "+str(global_step),
-              save_filename=plot_out_dir+"class_v"+version+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"class_v"+version+"-"+str(global_step).zfill(5)+".pdf")
             s_status = hf.save_data_tiled(
               tf.transpose(s_).eval({lamb:lambda_}).reshape(batch_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Reconstructions in step "+str(global_step),
-              save_filename=plot_out_dir+"recon_v"+version+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"recon_v"+version+"-"+str(global_step).zfill(5)+".pdf")
             phi_status = hf.save_data_tiled(
               tf.transpose(phi).eval().reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
               title="Dictionary for step "+str(global_step),
-              save_filename=plot_out_dir+"phi_v"+version+"-"+str(global_step).zfill(5)+".ps")
+              save_filename=plot_out_dir+"phi_v"+version+"-"+str(global_step).zfill(5)+".pdf")
 
         ## Test network on validation dataset
         if global_step % val_test_ == 0 and val_test_ > 0:
