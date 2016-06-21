@@ -167,7 +167,7 @@ with tf.Session() as sess:
     for sch_idx, schedule in enumerate(schedules):
       print("\n-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       print("Beginning schedule:")
-      print(schedule)
+      print("\n".join([key+"\t"+str(schedule[key]) for key in schedule.keys()]).expandtabs(16))
       print("-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-_-")
       lambda_ = schedule["lambda"]           # Sparsity tradeoff
       gamma_ = schedule["gamma"]             # Supervised loss tradeoff

@@ -23,19 +23,19 @@ class parameters(object):
 
     self.model_schedule= [ \
       {"weights"     : ["phi"], # [list of str] Which weights to update
-      "lambda"      : 0.7,      # [float] Sparsity tradeoff
+      "lambda"      : 0.8,      # [float] Sparsity tradeoff
       "gamma"       : 0.0,      # [float] Supervised loss tradeoff
       "psi"         : 0.0,      # [float] Feedback strength
       "num_steps"   : 20,       # [int] Number of iterations of LCA update equation
       "lr"          : [0.1],    # [list of float] Learning rates for weight updates
       "decay_steps" : [3000],   # [list of int] How often to decay for SGD annealing
       "decay_rate"  : [0.5],    # [list of float] Rate to decay for SGD annealing
-      "staircase"   : [True],   # [list of bool] Whether SGD annealing should be step (T) or exponential (F)
+      "staircase"   : [True],   # [list of bool] Annealing can be step (T) or exponential (F)
       "num_batches" : 6000},    # [int] Number of batches to run for this schedule
     \
       {"weights"     : ["w"],
-      "lambda"      : 0.7,
-      "gamma"       : 0.0,
+      "lambda"      : 0.8,
+      "gamma"       : 1.0,
       "psi"         : 0.0,
       "num_steps"   : 20,
       "lr"          : [0.1],
@@ -45,8 +45,8 @@ class parameters(object):
       "num_batches" : 6000},
     \
       {"weights"     : ["phi", "w"],
-      "lambda"      : 0.7,
-      "gamma"       : 0.0,
+      "lambda"      : 0.8,
+      "gamma"       : 1.0,
       "psi"         : 0.0,
       "num_steps"   : 20,
       "lr"          : [0.01, 0.1],
