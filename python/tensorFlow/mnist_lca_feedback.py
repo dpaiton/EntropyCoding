@@ -141,11 +141,13 @@ with tf.name_scope("optimizers") as scope:
 
 ## Checkpointing & graph output
 if params["checkpoint"] > 0:
-  if not os.path.exists(params["checkpoint_base_path"]+"/checkpoints"):
-    os.makedirs(params["checkpoint_base_path"]+"/checkpoints")
+  if not os.path.exists(params["checkpoint_dir"]+"/checkpoints"):
+    os.makedirs(params["checkpoint_dir"]+"/checkpoints")
+  weight_list = {"phi":phi, "w":w}
+  weight_saver = tf.train.Saver(weight_list)
   saver = tf.train.Saver()
   saver_def = saver.as_saver_def()
-  with open(params["checkpoint_base_path"]+"/checkpoints/lca_gradient_saver_v"+\
+  with open(params["checkpoint_dir"]+"/checkpoints/lca_gradient_saver_v"+\
     params["version"]+".def", 'wb') as f:
     f.write(saver_def.SerializeToString())
 
@@ -159,6 +161,10 @@ if params["display_plots"]:
 
 with tf.Session() as sess:
   with tf.device(params["device"]):
+    print("\n-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-")
+    print("Training model with parameter set:")
+    print("\n".join([key+"\t"+str(params[key]) for key in params.keys()]).expandtabs(16))
+    print("-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-")
     ## Run session, passing empty arrays to set up network size
     sess.run(init_op,
       feed_dict={s:np.zeros((params["n"], params["batch"]), dtype=np.float32),
@@ -177,7 +183,7 @@ with tf.Session() as sess:
 
       for step in range(num_batches_):
         if step == 0 and sch_idx == 0:
-          tf.train.write_graph(sess.graph_def, params["checkpoint_base_path"]+"/checkpoints",
+          tf.train.write_graph(sess.graph_def, params["checkpoint_dir"]+"/checkpoints",
             "lca_gradient_graph_v"+params["version"]+".pb", as_text=False)
 
         ## Load in data
@@ -207,18 +213,18 @@ with tf.Session() as sess:
             lamb:lambda_,
             gamma:gamma_})
 
-        current_step = global_step.eval()
         ## Print statistics about run to stdout
+        current_step = global_step.eval()
         if current_step % params["stats_display"] == 0 and params["stats_display"] > 0:
           sparsity = 100 * np.count_nonzero(Tu.eval({lamb:lambda_})) / (params["m"] * params["batch"])
           train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
-          pSNRdb = (10*np.log(255.0**2 /
+          pSNRdB = (10.0*np.log(255.0**2 /
             ((1.0/float(params["n"]))*
             tf.reduce_sum(tf.pow(tf.sub(input_image, s_), 2.0)).eval({lamb:lambda_}))))
           print("\nGlobal batch index is %g"%(current_step))
           print("Finished step %g out of %g, max val of u is %g, num active of a was %g%%"%(step+1,
             num_batches_, u.eval().max(), sparsity))
-          print("\trecon err (pSNR dB):\t%g"%(pSNRdb))
+          print("\trecon err (pSNR dB):\t%g"%(pSNRdB))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
           print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
@@ -240,7 +246,7 @@ with tf.Session() as sess:
               int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
               title="Dictionary for step "+str(current_step), prev_fig=phi_prev_fig)
           if params["save_plots"]:
-            plot_out_dir = params["checkpoint_base_path"]+"/vis/"
+            plot_out_dir = params["checkpoint_dir"]+"/vis/"
             if not os.path.exists(plot_out_dir):
               os.makedirs(plot_out_dir)
             w_status = hf.save_data_tiled(
@@ -268,38 +274,48 @@ with tf.Session() as sess:
                   int(np.sqrt(params["m"])), int(np.sqrt(params["m"]))), title="Gradient for W at step "+str(current_step),
                   save_filename=plot_out_dir+"dw_v"+params["version"]+"_"+str(current_step).zfill(5)+".pdf")
 
-        ## Test network on validation dataset
-        if current_step % params["val_test"] == 0 and params["val_test"] > 0:
-          val_image = hf.normalize_image(dataset.validation.images).T
-          val_label = dataset.validation.labels.T
-          with tf.Session() as temp_sess:
-            temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
-            temp_sess.run(clear_u, feed_dict={s:val_image})
-            for _ in range(num_steps_):
-              temp_sess.run(step_lca,
-                feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_,
-                gamma:gamma_, psi:0})
-            val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
-            print("\t---validation accuracy: %g"%(val_accuracy))
-
         ## Write checkpoint to disc
         if current_step % params["checkpoint"] == 0 and params["checkpoint"] > 0:
-          output_path = params["checkpoint_base_path"]+\
+          output_path = params["checkpoint_dir"]+\
             "/checkpoints/lca_checkpoint_v"+params["version"]+"_s"+str(sch_idx)
           save_path = saver.save(sess, save_path=output_path, global_step=global_step)
-          print("\tModel saved in file %s"%save_path)
+          print("\tFull model saved in file %s"%save_path)
+
+          ## Test network on validation dataset
+          if params["checkpoint_val"]:
+            weight_output_path = params["checkpoint_dir"]+\
+              "/checkpoints/lca_checkpoint_v"+params["version"]+"_s"+str(sch_idx)+"_weights_only"
+            weight_save_path = weight_saver.save(sess, save_path=weight_output_path, global_step=global_step)
+            val_image = hf.normalize_image(dataset.validation.images).T
+            val_label = dataset.validation.labels.T
+            with tf.Session() as temp_sess:
+              temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
+              weight_saver.restore(temp_sess, weight_save_path)
+              temp_sess.run(clear_u, feed_dict={s:val_image})
+              for _ in range(num_steps_):
+                temp_sess.run(step_lca,
+                  feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_,
+                  gamma:gamma_, psi:0})
+              val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
+              print("\t---validation accuracy: %g"%(val_accuracy))
 
     ## Write final checkpoint regardless of specified interval
     if params["checkpoint"] > 0:
-      save_path = saver.save(sess,
-        params["checkpoint_base_path"]+"/checkpoints/lca_checkpoint_v"+params["version"]+"_FINAL",
-        global_step=global_step)
+      output_path = params["checkpoint_dir"]+\
+        "/checkpoints/lca_checkpoint_v"+params["version"]+"_sF"
+      save_path = saver.save(sess, save_path=output_path, global_step=global_step)
       print("\tFinal version of model saved in file %s"%save_path)
 
+    ## Test session
+    weight_output_path = params["checkpoint_dir"]+\
+      "/checkpoints/lca_checkpoint_v"+params["version"]+"_sF"+"_weights_only"
+    weight_save_path = weight_saver.save(sess, save_path=weight_output_path, global_step=global_step)
     with tf.Session() as temp_sess:
       test_images = hf.normalize_image(dataset.test.images).T
       test_labels = dataset.test.labels.T
       temp_sess.run(init_op, feed_dict={s:test_images, y:test_labels})
+      weight_saver.restore(temp_sess, weight_save_path)
+      temp_sess.run(clear_u, feed_dict={s:val_image})
       for t in range(num_steps_):
         temp_sess.run(step_lca,
           feed_dict={s:test_images, y:test_labels, eta:params["dt"]/params["tau"], lamb:0.1, gamma:1.0, psi:0})
