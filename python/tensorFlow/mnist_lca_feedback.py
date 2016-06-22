@@ -61,12 +61,6 @@ with tf.variable_scope("weights") as scope:
   w = tf.get_variable(name="w", dtype=tf.float32,
     initializer=tf.truncated_normal([params["l"], params["m"]], mean=weight_init_mean,
     stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="w_init"), trainable=True)
-  #phi = tf.get_variable(tf.truncated_normal([params["n"], params["m"]], mean=weight_init_mean,
-  #  stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="phi_init"),
-  #  trainable=True, name="phi")
-  #w = tf.Variable(tf.truncated_normal([params["l"], params["m"]], mean=weight_init_mean,
-  #  stddev=np.sqrt(weight_init_var), dtype=tf.float32, name="w_init"),
-  #  trainable=True, name="w")
 
 with tf.name_scope("normalize_weights") as scope:
   norm_phi = phi.assign(tf.nn.l2_normalize(phi, dim=1, epsilon=params["eps"], name="row_l2_norm"))
@@ -95,7 +89,8 @@ with tf.name_scope("update_u") as scope:
   step_lca = tf.group(u.assign_add(eta * du), name="do_update_u")
 
   ## Operation to clear u
-  clear_u = tf.group(u.assign(tf.zeros(shape=tf.pack([params["m"], tf.shape(s)[1]]), dtype=tf.float32, name="zeros")))
+  clear_u = tf.group(u.assign(tf.zeros(shape=tf.pack([params["m"], tf.shape(s)[1]]),
+    dtype=tf.float32, name="zeros")))
 
 with tf.name_scope("loss") as scope:
   with tf.name_scope("unsupervised"):
@@ -146,7 +141,8 @@ if params["checkpoint"] > 0:
     os.makedirs(params["checkpoint_base_path"]+"/checkpoints")
   saver = tf.train.Saver()
   saver_def = saver.as_saver_def()
-  with open(params["checkpoint_base_path"]+"/checkpoints/lca_gradient_saver_v"+params["version"]+".def", 'wb') as f:
+  with open(params["checkpoint_base_path"]+"/checkpoints/lca_gradient_saver_v"+\
+    params["version"]+".def", 'wb') as f:
     f.write(saver_def.SerializeToString())
 
 ## Initialization
@@ -191,7 +187,13 @@ with tf.Session() as sess:
         ## Perform inference
         clear_u.run({s:input_image})
         for t in range(num_steps_):
-          step_lca.run({s:input_image, y:input_label, eta:params["dt"]/params["tau"], lamb:lambda_, gamma:gamma_, psi:psi_})
+          step_lca.run({\
+            s:input_image,
+            y:input_label,
+            eta:params["dt"]/params["tau"],
+            lamb:lambda_,
+            gamma:gamma_,
+            psi:psi_})
 
         ## Run update method - auto updates global_step
         for weight_idx in range(len(schedule["weights"])):
@@ -207,7 +209,7 @@ with tf.Session() as sess:
           sparsity = 100 * np.count_nonzero(Tu.eval({lamb:lambda_})) / (params["m"] * params["batch"])
           train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
           print("\nGlobal batch index is %g"%current_step)
-          print("Finished step %g out of %g, max val of u is %g, num active of a was %g percent"%(step+1,
+          print("Finished step %g out of %g, max val of u is %g, num active of a was %g%%"%(step+1,
             num_batches_, u.eval().max(), sparsity))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
@@ -219,12 +221,15 @@ with tf.Session() as sess:
         ## Create plots for visualizing network
         if current_step % params["generate_plots"] == 0 and params["generate_plots"] > 0:
           if params["display_plots"]:
-            w_prev_fig = hf.display_data_tiled(w.eval().reshape(params["l"], int(np.sqrt(params["m"])), int(np.sqrt(params["m"]))),
-              title="Classification matrix at step number "+str(current_step), prev_fig=w_prev_fig)
+            w_prev_fig = hf.display_data_tiled(w.eval().reshape(params["l"], int(np.sqrt(params["m"])),
+              int(np.sqrt(params["m"]))), title="Classification matrix at step number "+str(current_step),
+              prev_fig=w_prev_fig)
             recon_prev_fig = hf.display_data_tiled(
-              tf.transpose(s_).eval({lamb:lambda_}).reshape(params["batch"], int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
-              title="Reconstructions in step "+str(current_step), prev_fig=recon_prev_fig)
-            phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(params["m"], int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
+              tf.transpose(s_).eval({lamb:lambda_}).reshape(params["batch"], int(np.sqrt(params["n"])),
+              int(np.sqrt(params["n"]))), title="Reconstructions in step "+str(current_step),
+              prev_fig=recon_prev_fig)
+            phi_prev_fig = hf.display_data_tiled(tf.transpose(phi).eval().reshape(params["m"],
+              int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
               title="Dictionary for step "+str(current_step), prev_fig=phi_prev_fig)
           if params["save_plots"]:
             plot_out_dir = params["checkpoint_base_path"]+"/vis/"
@@ -235,12 +240,12 @@ with tf.Session() as sess:
               title="Classification matrix at step number "+str(current_step),
               save_filename=plot_out_dir+"class_v"+params["version"]+"-"+str(current_step).zfill(5)+".pdf")
             s_status = hf.save_data_tiled(
-              tf.transpose(s_).eval({lamb:lambda_}).reshape(params["batch"], int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
-              title="Reconstructions in step "+str(current_step),
+              tf.transpose(s_).eval({lamb:lambda_}).reshape(params["batch"], int(np.sqrt(params["n"])),
+              int(np.sqrt(params["n"]))), title="Reconstructions in step "+str(current_step),
               save_filename=plot_out_dir+"recon_v"+params["version"]+"-"+str(current_step).zfill(5)+".pdf")
             phi_status = hf.save_data_tiled(
-              tf.transpose(phi).eval().reshape(params["m"], int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))),
-              title="Dictionary for step "+str(current_step),
+              tf.transpose(phi).eval().reshape(params["m"], int(np.sqrt(params["n"])),
+              int(np.sqrt(params["n"]))), title="Dictionary for step "+str(current_step),
               save_filename=plot_out_dir+"phi_v"+params["version"]+"-"+str(current_step).zfill(5)+".pdf")
 
         ## Test network on validation dataset
@@ -249,8 +254,11 @@ with tf.Session() as sess:
           val_label = dataset.validation.labels.T
           with tf.Session() as temp_sess:
             temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
-            for t in range(num_steps_):
-              temp_sess.run(step_lca, feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_, gamma:gamma_, psi:0})
+            temp_sess.run(clear_u, feed_dict={s:input_image})
+            for _ in range(num_steps_):
+              temp_sess.run(step_lca,
+                feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_,
+                gamma:gamma_, psi:0})
             val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
             print("\t---validation accuracy: %g"%(val_accuracy))
 
@@ -263,15 +271,18 @@ with tf.Session() as sess:
 
     ## Write final checkpoint regardless of specified interval
     if params["checkpoint"] > 0:
-      save_path = saver.save(sess, params["checkpoint_base_path"]+"/checkpoints/lca_checkpoint_v"+params["version"]+"_FINAL", global_step=global_step)
+      save_path = saver.save(sess,
+        params["checkpoint_base_path"]+"/checkpoints/lca_checkpoint_v"+params["version"]+"_FINAL",
+        global_step=global_step)
       print("\tFinal version of model saved in file %s"%save_path)
 
     with tf.Session() as temp_sess:
-      test_images = dataset.test.images.T
+      test_images = hf.normalize_image(dataset.test.images).T
       test_labels = dataset.test.labels.T
       temp_sess.run(init_op, feed_dict={s:test_images, y:test_labels})
       for t in range(num_steps_):
-        temp_sess.run(step_lca, feed_dict={s:test_images, y:test_labels, eta:params["dt"]/params["tau"], lamb:0.1, gamma:1.0, psi:0})
+        temp_sess.run(step_lca,
+          feed_dict={s:test_images, y:test_labels, eta:params["dt"]/params["tau"], lamb:0.1, gamma:1.0, psi:0})
       test_accuracy = temp_sess.run(accuracy, feed_dict={s:test_images, y:test_labels, lamb:0.1})
       print("Final accuracy: %g"%test_accuracy)
 
