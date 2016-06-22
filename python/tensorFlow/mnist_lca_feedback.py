@@ -116,6 +116,8 @@ with tf.name_scope("optimizers") as scope:
   grads_and_vars = list()
   apply_grads = list()
   for sch_idx, sch in enumerate(schedules):
+    tmp_grads_and_vars = list()
+    tmp_apply_grads = list()
     for w_idx, weight in enumerate(sch["weights"]):
       with tf.variable_scope("weights", reuse=True) as scope:
         var = [tf.get_variable(weight)]
@@ -131,9 +133,11 @@ with tf.name_scope("optimizers") as scope:
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rates,
           beta1=0.9, beta2=0.99, epsilon=1e-07, name="adam_optimizer_"+weight)
 
-      grads_and_vars.append(optimizer.compute_gradients(total_loss, var_list=var))
-      apply_grads.append(optimizer.apply_gradients(grads_and_vars[sch_idx*w_idx+w_idx],
+      tmp_grads_and_vars.append(optimizer.compute_gradients(total_loss, var_list=var))
+      tmp_apply_grads.append(optimizer.apply_gradients(tmp_grads_and_vars[w_idx],
         global_step=global_step))
+    grads_and_vars.append(tmp_grads_and_vars)
+    apply_grads.append(tmp_apply_grads)
 
 ## Checkpointing & graph output
 if params["checkpoint"] > 0:
@@ -197,7 +201,7 @@ with tf.Session() as sess:
 
         ## Run update method - auto updates global_step
         for weight_idx in range(len(schedule["weights"])):
-          apply_grads[sch_idx*weight_idx+weight_idx].run({\
+          apply_grads[sch_idx][weight_idx].run({\
             s:input_image,
             y:input_label,
             lamb:lambda_,
@@ -208,9 +212,13 @@ with tf.Session() as sess:
         if current_step % params["stats_display"] == 0 and params["stats_display"] > 0:
           sparsity = 100 * np.count_nonzero(Tu.eval({lamb:lambda_})) / (params["m"] * params["batch"])
           train_accuracy = accuracy.eval({s:input_image, y:input_label, lamb:lambda_})
-          print("\nGlobal batch index is %g"%current_step)
+          pSNRdb = (10*np.log(255.0**2 /
+            ((1.0/float(params["n"]))*
+            tf.reduce_sum(tf.pow(tf.sub(input_image, s_), 2.0)).eval({lamb:lambda_}))))
+          print("\nGlobal batch index is %g"%(current_step))
           print("Finished step %g out of %g, max val of u is %g, num active of a was %g%%"%(step+1,
             num_batches_, u.eval().max(), sparsity))
+          print("\trecon err (pSNR dB):\t%g"%(pSNRdb))
           print("\teuclidean loss:\t\t%g"%(euclidean_loss.eval({s:input_image, lamb:lambda_})))
           print("\tsparse loss:\t\t%g"%(sparse_loss.eval({s:input_image, lamb:lambda_})))
           print("\tunsupervised loss:\t%g"%(unsupervised_loss.eval({s:input_image, lamb:lambda_})))
@@ -247,6 +255,18 @@ with tf.Session() as sess:
               tf.transpose(phi).eval().reshape(params["m"], int(np.sqrt(params["n"])),
               int(np.sqrt(params["n"]))), title="Dictionary for step "+str(current_step),
               save_filename=plot_out_dir+"phi_v"+params["version"]+"-"+str(current_step).zfill(5)+".pdf")
+            for weight_grad_var in grads_and_vars[sch_idx]:
+              grad = weight_grad_var[0][0].eval({s:input_image, y:input_label, lamb:lambda_, gamma:gamma_})
+              shape = grad.shape
+              name = weight_grad_var[0][1].name.split('/')[1].split(':')[0]
+              if name == "phi":
+                dphi_status = hf.save_data_tiled(grad.T.reshape(params["m"],
+                  int(np.sqrt(params["n"])), int(np.sqrt(params["n"]))), title="Gradient for Phi at step "+str(current_step),
+                  save_filename=plot_out_dir+"dphi_v"+params["version"]+"_"+str(current_step).zfill(5)+".pdf")
+              elif name == "w":
+                dw_status = hf.save_data_tiled(grad.reshape(params["l"],
+                  int(np.sqrt(params["m"])), int(np.sqrt(params["m"]))), title="Gradient for W at step "+str(current_step),
+                  save_filename=plot_out_dir+"dw_v"+params["version"]+"_"+str(current_step).zfill(5)+".pdf")
 
         ## Test network on validation dataset
         if current_step % params["val_test"] == 0 and params["val_test"] > 0:
@@ -254,7 +274,7 @@ with tf.Session() as sess:
           val_label = dataset.validation.labels.T
           with tf.Session() as temp_sess:
             temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
-            temp_sess.run(clear_u, feed_dict={s:input_image})
+            temp_sess.run(clear_u, feed_dict={s:val_image})
             for _ in range(num_steps_):
               temp_sess.run(step_lca,
                 feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_,

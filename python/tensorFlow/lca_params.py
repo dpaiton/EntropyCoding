@@ -2,7 +2,7 @@ import os
 class parameters(object):
   def __init__(self):
     self.user_params = {\
-      "version"              : "3",            # [str] Version for output
+      "version"              : "2",            # [str] Version for output
       "n"                    : 784,            # [int] Number of pixels
       "m"                    : 400,            # [int] Number of layer 1 elements
       "l"                    : 10,             # [int] Number of layer 2 elements (categories)
@@ -13,9 +13,9 @@ class parameters(object):
       "opt_algorithm"        : "annealed_sgd", # [str] Which optimization algorithm to use
       "checkpoint"           : -1,             # [int] How often to checkpoint
       "checkpoint_base_path" : os.path.expanduser("~")+"/Work/Projects/lca_output",
-      "stats_display"        : 5,              # [int] How often to print updates to stdout
-      "val_test"             : 5,              # [int] How often to run the validation test
-      "generate_plots"       : 100,            # [int] How often to generate plots
+      "stats_display"        : 50,             # [int] How often to print updates to stdout
+      "val_test"             : 6000,           # [int] How often to run the validation test
+      "generate_plots"       : 1000,           # [int] How often to generate plots
       "display_plots"        : False,          # [bool] Whether to display plots
       "save_plots"           : True,           # [bool] Whether to save plots to file
       "device"               : "/cpu:0",       # [str] Which device to run on
