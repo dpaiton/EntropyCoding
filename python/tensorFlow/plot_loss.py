@@ -30,6 +30,7 @@ def get_log_outputs(log_text):
   max_iter = float(re.findall("out of (\d+),", log_text)[0])
   batch_iter = np.array([float(val) for val in re.findall("Global batch index is (\d+)", log_text)])
 
+  residual_error = np.array([float(val) for val in re.findall("recon err (pSNR dB):\s+(\d+\.?\d*)", log_text)])
   euclidean_loss = np.array([float(val) for val in re.findall("euclidean loss:\s+(\d+\.?\d*)", log_text)])
   sparse_loss = np.array([float(val) for val in re.findall("sparse loss:\s+(\d+\.?\d*)", log_text)])
   unsupervised_loss = np.array([float(val) for val in re.findall("unsupervised loss:\s+(\d+\.?\d*)", log_text)])
@@ -38,14 +39,15 @@ def get_log_outputs(log_text):
   val_accuracy = np.array([float(val) for val in re.findall("validation accuracy:\s+(\d+\.?\d*)", log_text)])
 
   return {"max_iter":max_iter, "batch_iter":batch_iter,
-    "euclidean_loss":euclidean_loss, "sparse_loss":sparse_loss,
-    "unsupervised_loss":unsupervised_loss, "supervised_loss":supervised_loss,
-    "train_accuracy":train_accuracy, "val_accuracy":val_accuracy}
+    "residual_error":residual_error, "euclidean_loss":euclidean_loss,
+    "sparse_loss":sparse_loss, "unsupervised_loss":unsupervised_loss,
+    "supervised_loss":supervised_loss, "train_accuracy":train_accuracy,
+    "val_accuracy":val_accuracy}
 
 def main(args):
   log_base_path = os.path.expanduser('~')+"/Work/Projects/"+args["model_name"]+"_output/logfiles/"
   out_base_path = os.path.expanduser('~')+"/Work/Projects/"+args["model_name"]+"_analysis/"
-  log_file = log_base_path+"v"+args["model_version"]+"_out.log"
+  log_file = log_base_path+args["model_name"]+"_"+args["log_prefix"]+"_v"+args["model_version"]+".log"
 
   ## Make paths
   if not os.path.exists(out_base_path):
@@ -55,8 +57,9 @@ def main(args):
   stats = get_log_outputs(load_file(log_file))
 
   ## Plot loss stats
-  loss_save_filename = out_base_path+args["model_name"]+"_loss_v"+args["model_version"]+".ps"
-  acc_save_filename = out_base_path+args["model_name"]+"_accuracy_v"+args["model_version"]+".ps"
+  loss_save_filename = out_base_path+args["model_name"]+"_"+args["log_prefix"]+"_loss_v"+args["model_version"]+".pdf"
+  acc_save_filename = out_base_path+args["model_name"]+"_"+args["log_prefix"]+"_accuracy_v"+args["model_version"]+".pdf"
+  err_save_filename = out_base_path+args["model_name"]+"_"+args["log_prefix"]+"_residual_err_v"+args["model_version"]+".pdf"
 
   fig_no, sub_axes = plt.subplots(4)
   axis_image = [None]*4
@@ -117,6 +120,22 @@ def main(args):
 
   fig_no.savefig(acc_save_filename, transparent=True)
 
+  ## Plot mean residual error
+  #fig_no, sub_axes = plt.subplots(1)
+  #axis_image = [None]*1
+  #axis_image[0] = sub_axes[0].plot(stats["batch_iter"], stats["residual_error"])
+
+  #sub_axes[0].set_xlabel("Batch Number")
+
+  #sub_axes[0].set_ylabel("Residual Error (pSNR dB)")
+
+  #ylabel_xpos = -0.1
+  #sub_axes[0].yaxis.set_label_coords(ylabel_xpos, 0.5)
+
+  #fig_no.suptitle("Average Residual Error per Batch", y=1.0, x=0.5)
+
+  #fig_no.savefig(err_save_filename, transparent=True)
+
   #IPython.embed()
 
 if __name__ == "__main__":
@@ -125,5 +144,6 @@ if __name__ == "__main__":
   ## Set config
   args["model_name"] = "lca"
   args["model_version"] = "2"
+  args["log_prefix"] = "feedback"
 
   main(args)
