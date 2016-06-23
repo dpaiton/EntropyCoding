@@ -286,17 +286,17 @@ with tf.Session() as sess:
             weight_output_path = params["checkpoint_dir"]+\
               "/checkpoints/lca_checkpoint_v"+params["version"]+"_s"+str(sch_idx)+"_weights_only"
             weight_save_path = weight_saver.save(sess, save_path=weight_output_path, global_step=global_step)
-            val_image = hf.normalize_image(dataset.validation.images).T
-            val_label = dataset.validation.labels.T
+            val_images = hf.normalize_image(dataset.validation.images).T
+            val_labels = dataset.validation.labels.T
             with tf.Session() as temp_sess:
-              temp_sess.run(init_op, feed_dict={s:val_image, y:val_label})
+              temp_sess.run(init_op, feed_dict={s:val_images, y:val_labels})
               weight_saver.restore(temp_sess, weight_save_path)
-              temp_sess.run(clear_u, feed_dict={s:val_image})
+              temp_sess.run(clear_u, feed_dict={s:val_images})
               for _ in range(num_steps_):
                 temp_sess.run(step_lca,
-                  feed_dict={s:val_image, y:val_label, eta:params["dt"]/params["tau"], lamb:lambda_,
+                  feed_dict={s:val_images, y:val_labels, eta:params["dt"]/params["tau"], lamb:lambda_,
                   gamma:gamma_, psi:0})
-              val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_image, y:val_label, lamb:lambda_})
+              val_accuracy = temp_sess.run(accuracy, feed_dict={s:val_images, y:val_labels, lamb:lambda_})
               print("\t---validation accuracy: %g"%(val_accuracy))
 
     ## Write final checkpoint regardless of specified interval
@@ -315,7 +315,7 @@ with tf.Session() as sess:
       test_labels = dataset.test.labels.T
       temp_sess.run(init_op, feed_dict={s:test_images, y:test_labels})
       weight_saver.restore(temp_sess, weight_save_path)
-      temp_sess.run(clear_u, feed_dict={s:val_image})
+      temp_sess.run(clear_u, feed_dict={s:test_images})
       for t in range(num_steps_):
         temp_sess.run(step_lca,
           feed_dict={s:test_images, y:test_labels, eta:params["dt"]/params["tau"], lamb:0.1, gamma:1.0, psi:0})
