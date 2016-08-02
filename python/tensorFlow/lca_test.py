@@ -16,7 +16,7 @@ lr_   = 0.05        # Learning rate for weight updates (will be divided by batch
 batch_ = 100        # Number of images in a batch
 num_steps_ = 20     # Number of steps to run LCA
 num_trials_ = 30000 # Number of batches to learn weights
-display_ = 5        # How often to display status updates
+display_ = 100      # How often to display status updates
 
 tf.set_random_seed(1234567890)
 np.random.seed(1234567890)
@@ -56,13 +56,13 @@ step_lca = tf.group(u.assign_add(eta * du))
 phi_optimizer = tf.train.GradientDescentOptimizer(weight_lr, name="grad_optimizer")
 auto_gradient = phi_optimizer.compute_gradients(unsupervised_loss, var_list=[phi])
 
-manual_gradient = weight_lr * - tf.matmul(tf.sub(s, s_), tf.transpose(a))
+manual_gradient = weight_lr * -tf.matmul(tf.sub(s, s_), tf.transpose(a))
 
-dphi = -manual_gradient
-#dphi = -auto_gradient[0][0]
+#step_phi = phi_optimizer.apply_gradients([(manual_gradient, phi)])
+step_phi = phi_optimizer.apply_gradients(auto_gradient)
 
 ## Operation to update the state
-step_phi = tf.group(phi.assign_add(dphi))
+#step_phi = tf.group(phi.assign_add(dphi))
 
 ## Weight normalization
 normalize_phi = tf.group(phi.assign(tf.nn.l2_normalize(phi, dim=1,
