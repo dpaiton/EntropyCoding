@@ -50,17 +50,18 @@ du = tf.sub(tf.sub(tf.matmul(tf.transpose(phi), s),
   tf.matmul(tf.matmul(tf.transpose(phi), phi)
   - tf.constant(np.identity(int(phi.get_shape()[1]), dtype=np.float32), name="identity_matrix"), a)), u)
 
+step_lca = tf.group(u.assign_add(eta * du))
+
 ## Discritized weight update rule
 phi_optimizer = tf.train.GradientDescentOptimizer(weight_lr, name="grad_optimizer")
-auto_dphi = phi_optimizer.compute_gradients(-unsupervised_loss, var_list=[phi])
+auto_gradient = phi_optimizer.compute_gradients(-unsupervised_loss, var_list=[phi])
 
-manual_dphi = weight_lr * tf.matmul(tf.sub(s, s_), tf.transpose(a))
+manual_gradient = weight_lr * - tf.matmul(tf.sub(s, s_), tf.transpose(a))
 
-dphi = manual_dphi
-#dphi = auto_dphi[0][0]
+dphi = -manual_gradient
+#dphi = -auto_gradient[0][0]
 
 ## Operation to update the state
-step_lca = tf.group(u.assign_add(eta * du))
 step_phi = tf.group(phi.assign_add(dphi))
 
 ## Weight normalization
