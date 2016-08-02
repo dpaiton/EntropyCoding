@@ -54,7 +54,7 @@ step_lca = tf.group(u.assign_add(eta * du))
 
 ## Discritized weight update rule
 phi_optimizer = tf.train.GradientDescentOptimizer(weight_lr, name="grad_optimizer")
-auto_gradient = phi_optimizer.compute_gradients(-unsupervised_loss, var_list=[phi])
+auto_gradient = phi_optimizer.compute_gradients(unsupervised_loss, var_list=[phi])
 
 manual_gradient = weight_lr * - tf.matmul(tf.sub(s, s_), tf.transpose(a))
 
