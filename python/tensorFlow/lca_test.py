@@ -93,10 +93,10 @@ with tf.Session() as sess:
         title='Dictionary for trial number '+str(trial),
         save_filename="outputs/phi_"+str(trial)+".pdf")
       #IPython.embed()
-      _ = hf.save_data_tiled(tf.transpose(auto_dphi[0][0]).eval({s:norm_input, weight_lr:float(lr_)/float(batch_)}).reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+      _ = hf.save_data_tiled(tf.transpose(auto_gradient[0][0]).eval({s:norm_input, weight_lr:float(lr_)/float(batch_)}).reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
         title='TF computed phi gradient for trial number '+str(trial),
         save_filename="outputs/dphi_auto_"+str(trial)+".pdf")
-      _ = hf.save_data_tiled(tf.transpose(manual_dphi).eval({s:norm_input, weight_lr:float(lr_)/float(batch_)}).reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
+      _ = hf.save_data_tiled(tf.transpose(manual_gradient).eval({s:norm_input, weight_lr:float(lr_)/float(batch_)}).reshape(m_, int(np.sqrt(n_)), int(np.sqrt(n_))),
         title='Manually computed phi gradient for trial number '+str(trial),
         save_filename="outputs/dphi_manual_"+str(trial)+".pdf")
 
