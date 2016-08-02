@@ -56,7 +56,7 @@ step_lca = tf.group(u.assign_add(eta * du))
 phi_optimizer = tf.train.GradientDescentOptimizer(weight_lr, name="grad_optimizer")
 auto_gradient = phi_optimizer.compute_gradients(unsupervised_loss, var_list=[phi])
 
-manual_gradient = weight_lr * -tf.matmul(tf.sub(s, s_), tf.transpose(a))
+manual_gradient = -tf.matmul(tf.sub(s, s_), tf.transpose(a))
 
 #step_phi = phi_optimizer.apply_gradients([(manual_gradient, phi)])
 step_phi = phi_optimizer.apply_gradients(auto_gradient)
