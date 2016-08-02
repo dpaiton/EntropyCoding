@@ -41,7 +41,7 @@ phi = tf.Variable(tf.nn.l2_normalize(tf.truncated_normal([n_, m_], mean=0.0,
 s_ = tf.matmul(phi, a, name="reconstruction")
 
 ## Loss functions
-euclidean_loss = 0.5 * tf.sqrt(tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0)))
+euclidean_loss = 0.5 * tf.reduce_sum(tf.pow(tf.sub(s, s_), 2.0))
 sparse_loss = lamb_ * tf.reduce_sum(tf.abs(a))
 unsupervised_loss = euclidean_loss + sparse_loss
 
@@ -60,9 +60,6 @@ manual_gradient = -tf.matmul(tf.sub(s, s_), tf.transpose(a))
 
 #step_phi = phi_optimizer.apply_gradients([(manual_gradient, phi)])
 step_phi = phi_optimizer.apply_gradients(auto_gradient)
-
-## Operation to update the state
-#step_phi = tf.group(phi.assign_add(dphi))
 
 ## Weight normalization
 normalize_phi = tf.group(phi.assign(tf.nn.l2_normalize(phi, dim=1,
